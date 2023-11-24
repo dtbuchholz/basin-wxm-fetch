@@ -48,7 +48,7 @@ def set_up_df() -> pl.DataFrame:
                      "Forming remote URLs for deals...")
     # Create a dataframe from the remote parquet files at the IPFS URLs
     df = wrap_task(lambda: get_df(urls),
-                   "Creating dataframe from remote (IPFS)...")
+                   "Creating dataframe from remote IPFS files...")
     return df
 
 

@@ -16,11 +16,11 @@
 
 ## Background
 
-This project contains a simple setup wherein data pushed to Tableland Basin (replicated to Filecoin) is fetched remotely and queried with [polars](https://www.pola.rs/).
+This project contains a simple setup wherein data pushed to Tableland [Basin](https://github.com/tablelandnetwork/basin-cli) (replicated to Filecoin) is fetched remotely and queried with [polars](https://www.pola.rs/).
 
 ### Data
 
-The script fetches data from the `wxm2` namespace on a cron schedule. For every run, it will query data and write the results to:
+The script fetches data from the WeatherXM's `wxm2` Basin namespace on a cron schedule. For every run, it will query data and write the results to:
 
 - [Data](./Data.md): Summary metrics for the run, including averages across all columns.
 - [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
@@ -61,7 +61,17 @@ Or, you can define a custom time range with `start` and `end` arguments (in mill
 make run start=1697328000000 end=1697932798895
 ```
 
-This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the wxm data namespace is for Oct 15-21: `1697328000000` to `1697932798895`
+This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the wxm data namespace is for Oct 15-21: `1697328000000` to `1697932798895`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
+
+```sh
+[04:02:10] INFO     Getting publications...done in 0.96s
+[04:02:19] INFO     Getting deals for publications...done in 8.96s
+           INFO     Forming remote URLs for deals...done in 0.76s
+[04:03:47] INFO     Creating dataframe from remote IPFS files...done in 87.51s
+[04:03:48] INFO     Query range: 2023-10-15 00:00:00 to 2023-10-21 23:59:58
+[04:05:11] INFO     Executing queries...done in 83.11s
+⠙ Writing results to files...
+```
 
 ### Makefile Reference
 

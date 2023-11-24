@@ -9,8 +9,12 @@ from rich.logging import RichHandler
 
 # Set up pretty logging
 FORMAT = "%(message)s"
+console = Console()
 logging.basicConfig(
-    level=logging.INFO, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+    level=logging.INFO,
+    format=FORMAT,
+    datefmt="[%X]",
+    handlers=[RichHandler(show_path=False, console=console)]
 )
 log = logging.getLogger("rich")
 
@@ -40,11 +44,10 @@ def log_info(desc: str) -> None:
 
 # Pretty print status of pending requests
 def wrap_task(task: Callable[..., Any], desc: str) -> Any:
-    console = Console()
     with console.status(f"[bold green]{desc}") as status:
         start_time = time.time()
         result = task()
         end_time = time.time()
         duration = end_time - start_time
-        console.log(f"{desc}done in {duration:.2f}s")
+        log_info(f"{desc}done in {duration:.2f}s")
     return result
