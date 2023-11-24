@@ -1,10 +1,9 @@
 """Fetch Basin wxm data and run queries."""
 
 import argparse
-from pathlib import Path
 import logging
 
-from fetch import get_basin_pubs_legacy, get_basin_deals, extract
+from fetch import get_basin_pubs_legacy, get_basin_deals, get_basin_links
 from query import get_df, query_agg_precipitation_acc, query_timestamp_range, query_average_all, query_num_unique_devices, query_num_unique_models
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -44,22 +43,20 @@ def main():
         print("No deals found")
         return
 
-    # Extract CAR files from deals into 'data' directory (creates if not exists)
-    data_dir = Path("data")
-    extract(deals, data_dir)
-    # Read data from parquet files
-    df = get_df(data_dir)
+    # Read data from remote parquet files
+    links = get_basin_links(deals)
+    df = get_df(links)
     # Note: timestamp range for Oct 15-21 data: 1697328000000 to 1697932798895
     if start is None or end is None:
         # Get timestamp range from data
-        start_time, end_time = query_timestamp_range(get_df(data_dir))
+        start_time, end_time = query_timestamp_range(df)
         if start is None:
             start = start_time
         if end is None:
             end = end_time
 
     logging.info(f"Timestamp range {start} to {end}:")
-    # Query for averages across all columns (except device_id, timestamp, model)
+    # # Query for averages across all columns (except device_id, timestamp, model)
     averages, columns = query_average_all(df, start, end)
     # Format and print the result
     logging.info(f"Averages:")

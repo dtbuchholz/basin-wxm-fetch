@@ -3,8 +3,7 @@
 import subprocess
 import logging
 import json
-import tempfile
-import os
+import requests
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -99,6 +98,9 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             if out:
                 # Convert string output to json
                 pub_deals = json.loads(out)
+                for deal in pub_deals:
+                    # Add publication to deal object
+                    deal['publication'] = pub
                 deals.extend(pub_deals)
             else:
                 logging.info(f"No deals found for publication {pub}")
@@ -116,56 +118,30 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     return deals
 
 
-def extract(deals: list[dict], data_dir: str) -> None:
-    logging.info(f"Retrieving & extracting deals...")
-    cwd = os.getcwd()
-    # Ensure the 'data' directory exists
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    logging.info(f"  Retrieving deals from Basin...")
-    with tempfile.TemporaryDirectory() as temp_dir:
-        for deal in deals:
-            cid = deal.get('cid')
-            if cid:
-                try:
-                    command = ['basin', 'publication', 'retrieve', cid]
-                    subprocess.run(
-                        command,
-                        check=True,
-                        cwd=temp_dir
-                    )
-                except subprocess.CalledProcessError as e:
-                    logging.error(
-                        f"Error extracting basin data for CID {cid}: {e.stderr}")
-                except Exception as e:
-                    logging.error(
-                        f"Unexpected error occurred for CID {cid}: {str(e)}")
-            else:
-                logging.error(f"Deal {deal} does not have a 'cid' key.")
+def get_basin_links(pubs: list[object]) -> list[str]:
+    logging.info(f"Forming remote links for publication deals...")
+    base_url = f"https://dweb.link/api/v0/"
+    links = []
+    for pub in pubs:
+        cid = pub['cid']
+        formatted_path = pub['publication'].replace('.', '/')
+        list_url = f"{base_url}ls?arg={cid}/{formatted_path}/"
+        response = requests.get(list_url)
+        # Check if the request was successful
+        if response.status_code == 200:
+            try:
+                # Parse the response content as JSON
+                data = response.json()
 
-        # Process each file in the temp_dir
-        logging.info(f"  Extracting CAR files to '{data_dir}'...")
-        for file_name in os.listdir(temp_dir):
-            file_path = os.path.join(temp_dir, file_name)
-            if os.path.isfile(file_path):
-                try:
-                    # Change working directory to 'data' directory
-                    os.chdir(data_dir)
-                    command = ['car', 'extract', '--file', file_path]
-                    subprocess.run(
-                        command,
-                        stdout=subprocess.DEVNULL,
-                        check=True
-                    )
-                    # Change back to the original working directory
-                    os.chdir(cwd)
-                except subprocess.CalledProcessError as e:
-                    logging.error(
-                        f"Error extracting file {file_path}: {e.stderr}")
-                except Exception as e:
-                    logging.error(
-                        f"Unexpected error occurred for file {file_path}: {str(e)}")
-                finally:
-                    os.chdir(cwd)
+                # Navigate through the JSON to find the file name
+                file_name = data['Objects'][0]['Links'][0]['Name']
+                get_url = f"https://{cid}.ipfs.w3s.link/{formatted_path}/{file_name}"
+                links.append(get_url)
 
-        logging.info("Extraction completed.")
+            except (KeyError, IndexError, TypeError) as e:
+                logging.error(
+                    f"Unexpected error parsing response data for publication {pub}: {str(e)}")
+        else:
+            logging.error(
+                f"Failed to fetch data. Status code: {response.status_code}")
+    return links

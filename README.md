@@ -15,7 +15,7 @@
 
 ## Background
 
-This project contains a simple setup wherein data pushed to Tableland Basin (replicated to Filecoin) is fetched and computed used [polars](https://www.pola.rs/).
+This project contains a simple setup wherein data pushed to Tableland Basin (replicated to Filecoin) is fetched remotely and queried with [polars](https://www.pola.rs/).
 
 ## Install
 
@@ -28,9 +28,9 @@ Then, you can use the `Makefile` command to install dependencies: `make install`
 
 ## Usage
 
-Running `src/main.py` will fetch remote files from Tableland [Basin](https://github.com/tablelandnetwork/basin-cli), download them locally (to a temporary directory), and then extract them into the `data` directory with [`go-car`](https://github.com/ipld/go-car). Then, it'll run queries on the data.
+Running `src/main.py` will fetch remote files from Tableland [Basin](https://github.com/tablelandnetwork/basin-cli), load them into a `polars` dataframe, and then run queries on the data.
 
-To use default time ranges set to the full data set, run:
+To use default time ranges (the full dataset), run:
 
 ```sh
 make run
@@ -42,7 +42,7 @@ Or, you can define a custom time range:
 make run start=1697328000000 end=1697932798895
 ```
 
-Note: the timestamp range for wxm data from Oct 15-21: `1697328000000` to `1697932798895`
+Note: the timestamp range for wxm data namespace is for Oct 15-21: `1697328000000` to `1697932798895`
 
 ### Makefile Reference
 
