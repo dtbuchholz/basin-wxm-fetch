@@ -21,10 +21,13 @@ This project contains a simple setup wherein data pushed to Tableland Basin (rep
 
 To set things up on your machine, you'll need to do the following:
 
-1. Run: `python -m venv env`.
-2. Source: `source env/bin/activate`
+1. Set up the virtual environment: `python -m venv env`
+2. Upgrade pip: `pip install --upgrade pip`
+3. Source the `env` to use it: `source env/bin/activate`
 
-Then, you can use the `Makefile` command to install dependencies: `make install`.
+Then, you can use the Makefile command to install dependencies: `make install`
+
+Alternatively, you can do all of these in one step (for local development) with: `make setup`
 
 ## Usage
 
@@ -36,21 +39,22 @@ To use default time ranges (the full dataset), run:
 make run
 ```
 
-Or, you can define a custom time range:
+Or, you can define a custom time range with `start` and `end` arguments (in milliseconds), which will be used to filter the data when _queries_ are executed.
 
 ```sh
 make run start=1697328000000 end=1697932798895
 ```
 
-Note: the timestamp range for wxm data namespace is for Oct 15-21: `1697328000000` to `1697932798895`
+This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the wxm data namespace is for Oct 15-21: `1697328000000` to `1697932798895`
 
 ### Makefile Reference
 
-The following defines all commands available in the `Makefile`:
+The following defines all commands available in the Makefile:
 
-- `make install`: Install dependencies.
-- `make run`: Run the `main.py` program.
-- `make freeze`: Freeze dependencies (only needed if you make changes to the python code deps).
+- `make install`: Install dependencies with `pip`.
+- `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write to metric summary files.
+- `make setup`: Create a virtual environment, upgrade pip, and source your `env` (only for local development).
+- `make freeze`: Freeze dependencies (only needed if you make changes to the deps during local development).
 
 ## Contributing
 

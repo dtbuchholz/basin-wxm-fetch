@@ -1,13 +1,15 @@
-"""Fetch Basin wxm data."""
+"""Get Basin wxm publications & files to set up remote URLs for further queries."""
 
 import subprocess
 import logging
 import json
+import time
 import requests
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 
+# Get publications for wxm2 namespace creator (note: must use legacy contract)
 def get_basin_pubs_legacy(address: str) -> list[str]:
     logging.info(f"Getting publications for {address}...")
     try:
@@ -32,22 +34,18 @@ def get_basin_pubs_legacy(address: str) -> list[str]:
             return []
 
     except subprocess.CalledProcessError as e:
-        logging.error(
-            f"Error getting basin publications for address {address}: {e.stderr}")
-        return []  # Return an empty list in case of an error
+        error_msg = f"Error getting basin publications for address {address}: {e.stderr}"
+        logging.error(error_msg)
+        raise RuntimeError(error_msg)
 
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decoding error for address {address}: {str(e)}")
-        return []  # Return an empty list in case of an error
-
-    except Exception as e:
-        logging.error(
-            f"Unexpected error occurred for address {address}: {str(e)}")
-        return []  # Return an empty list in case of an error
+        error_msg = f"JSON decoding error for address {address}: {str(e)}"
+        logging.error(error_msg)
+        raise RuntimeError(error_msg)
 
 
-# Note: existing wxm data is on the old contract, so this returns nothing;
-# placeholder method for future use
+# Get publications for wxm2 namespace creator (note: this is the new contract,
+# so it's not used in the current wxm use case)
 def get_basin_pubs(address: str) -> list[str]:
     logging.info(f"Getting publications for {address}...")
     try:
@@ -67,20 +65,18 @@ def get_basin_pubs(address: str) -> list[str]:
             return []
 
     except subprocess.CalledProcessError as e:
-        logging.error(
-            f"Error getting basin publications for address {address}: {e.stderr}")
-        return []  # Return an empty list in case of an error
+        error_msg = f"Error getting basin publications for address {address}: {e.stderr}"
+        logging.error(error_msg)
+        raise RuntimeError(error_msg)
 
     except json.JSONDecodeError as e:
-        logging.error(f"JSON decoding error for address {address}: {str(e)}")
-        return []  # Return an empty list in case of an error
-
-    except Exception as e:
-        logging.error(
-            f"Unexpected error occurred for address {address}: {str(e)}")
-        return []  # Return an empty list in case of an error
+        error_msg = f"JSON decoding error for address {address}: {str(e)}"
+        logging.error(error_msg)
+        raise RuntimeError(error_msg)
 
 
+# Get deals for each publication, also inserting the corresponding
+# `namespace.publication` into the returned objects (used in forming URL path)
 def get_basin_deals(pubs: list[str]) -> list[object]:
     logging.info(f"Getting deals for publications...")
     deals = []
@@ -106,42 +102,61 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
                 logging.info(f"No deals found for publication {pub}")
 
         except subprocess.CalledProcessError as e:
-            logging.error(
-                f"Error finding basin deal for publication {pub}: {e.stderr}")
+            error_msg = f"Error finding basin deal for publication {pub}: {e.stderr}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
         except json.JSONDecodeError as e:
-            logging.error(
-                f"JSON decoding error for publication {pub}: {str(e)}")
-        except Exception as e:
-            logging.error(
-                f"Unexpected error occurred for publication {pub}: {str(e)}")
+            error_msg = f"JSON decoding error for publication {pub}: {str(e)}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
     return deals
 
 
-def get_basin_links(pubs: list[object]) -> list[str]:
-    logging.info(f"Forming remote links for publication deals...")
-    base_url = f"https://dweb.link/api/v0/"
-    links = []
+# Form remote URLs for each deal—first get the filename via `dweb.link`, then
+# use Web3.Storage gateway to crete a list of URLs like:
+# `https://<cid>.ipfs.w3s.link/<bamespace>/<publication>/<file>`
+def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
+    logging.info("Forming remote URLs for publication deals...")
+    base_url = "https://dweb.link/api/v0/"
+    urls = []
+
     for pub in pubs:
         cid = pub['cid']
         formatted_path = pub['publication'].replace('.', '/')
         list_url = f"{base_url}ls?arg={cid}/{formatted_path}/"
-        response = requests.get(list_url)
-        # Check if the request was successful
-        if response.status_code == 200:
+
+        attempts = 0
+        while attempts < max_retries:
             try:
-                # Parse the response content as JSON
-                data = response.json()
+                response = requests.get(list_url)
 
-                # Navigate through the JSON to find the file name
-                file_name = data['Objects'][0]['Links'][0]['Name']
-                get_url = f"https://{cid}.ipfs.w3s.link/{formatted_path}/{file_name}"
-                links.append(get_url)
+                # Check if the request was successful
+                if response.status_code == 200:
+                    data = response.json()
+                    file_name = data['Objects'][0]['Links'][0]['Name']
+                    get_url = f"https://{cid}.ipfs.w3s.link/{formatted_path}/{file_name}"
+                    urls.append(get_url)
+                    break  # Break out of the retry loop on success
+                else:
+                    raise requests.exceptions.HTTPError(
+                        f"HTTP error: {response.status_code}")
 
-            except (KeyError, IndexError, TypeError) as e:
-                logging.error(
-                    f"Unexpected error parsing response data for publication {pub}: {str(e)}")
-        else:
-            logging.error(
-                f"Failed to fetch data. Status code: {response.status_code}")
-    return links
+            except requests.exceptions.HTTPError as e:
+                if response.status_code == 500:
+                    attempts += 1
+                    logging.error(
+                        f"Error forming request URL for {cid}; attempt {attempts} of {max_retries}. Retrying...",)
+                    time.sleep(retry_delay)
+                else:
+                    logging.error(f"HTTP error occurred: {e}")
+                    break
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
+                break
+        if attempts >= max_retries:
+            raise RuntimeError(
+                f"Failed to retrieve urls after {max_retries} attempts.")
+
+    return urls
