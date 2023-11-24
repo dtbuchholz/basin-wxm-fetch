@@ -1,17 +1,15 @@
 """Get Basin wxm publications & files to set up remote URLs for further queries."""
 
 import subprocess
-import logging
 import json
 import time
 import requests
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+from utils import err, log_err, log_info
 
 
 # Get publications for wxm2 namespace creator (note: must use legacy contract)
 def get_basin_pubs_legacy(address: str) -> list[str]:
-    logging.info(f"Getting publications for {address}...")
     try:
         # Run the basin `list` command (note: this is a workaround since wxm2
         # uses the old contract)
@@ -28,26 +26,22 @@ def get_basin_pubs_legacy(address: str) -> list[str]:
         if out:
             pubs = json.loads(out)
             return pubs
-            # return ['wxm2.date_2023_10_15']
         else:
-            logging.info(f"No publications found for address {address}")
-            return []
+            err(f"No publications found for address {address}",
+                ValueError("Invalid input"), ValueError)
 
     except subprocess.CalledProcessError as e:
-        error_msg = f"Error getting basin publications for address {address}: {e.stderr}"
-        logging.error(error_msg)
-        raise RuntimeError(error_msg)
+        error_msg = f"Error getting basin publications for address {address}"
+        err(error_msg, e, type(e))
 
     except json.JSONDecodeError as e:
-        error_msg = f"JSON decoding error for address {address}: {str(e)}"
-        logging.error(error_msg)
-        raise RuntimeError(error_msg)
+        error_msg = f"JSON decoding error for address {address}"
+        err(error_msg, e, type(e))
 
 
 # Get publications for wxm2 namespace creator (note: this is the new contract,
 # so it's not used in the current wxm use case)
 def get_basin_pubs(address: str) -> list[str]:
-    logging.info(f"Getting publications for {address}...")
     try:
         command = [
             'basin', 'publication', 'list', '--address', address
@@ -61,24 +55,21 @@ def get_basin_pubs(address: str) -> list[str]:
             pubs = json.loads(out)
             return pubs
         else:
-            logging.info(f"No publications found for address {address}")
-            return []
+            err(f"No publications found for address {address}",
+                ValueError("Invalid input"), ValueError)
 
     except subprocess.CalledProcessError as e:
-        error_msg = f"Error getting basin publications for address {address}: {e.stderr}"
-        logging.error(error_msg)
-        raise RuntimeError(error_msg)
+        error_msg = f"Error getting basin publications for address {address}"
+        err(error_msg, e, type(e))
 
     except json.JSONDecodeError as e:
-        error_msg = f"JSON decoding error for address {address}: {str(e)}"
-        logging.error(error_msg)
-        raise RuntimeError(error_msg)
+        error_msg = f"JSON decoding error for address {address}"
+        err(error_msg, e, type(e))
 
 
 # Get deals for each publication, also inserting the corresponding
 # `namespace.publication` into the returned objects (used in forming URL path)
 def get_basin_deals(pubs: list[str]) -> list[object]:
-    logging.info(f"Getting deals for publications...")
     deals = []
     for pub in pubs:
         try:
@@ -99,17 +90,15 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
                     deal['publication'] = pub
                 deals.extend(pub_deals)
             else:
-                logging.info(f"No deals found for publication {pub}")
+                log_info(f"No deals found for publication {pub}")
 
         except subprocess.CalledProcessError as e:
-            error_msg = f"Error finding basin deal for publication {pub}: {e.stderr}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            error_msg = f"Error finding basin deal for publication {pub}"
+            err(error_msg, e, type(e))
 
         except json.JSONDecodeError as e:
-            error_msg = f"JSON decoding error for publication {pub}: {str(e)}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            error_msg = f"JSON decoding error for publication {pub}"
+            err(error_msg, e, type(e))
 
     return deals
 
@@ -118,7 +107,6 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
 # use Web3.Storage gateway to crete a list of URLs like:
 # `https://<cid>.ipfs.w3s.link/<bamespace>/<publication>/<file>`
 def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
-    logging.info("Forming remote URLs for publication deals...")
     base_url = "https://dweb.link/api/v0/"
     urls = []
 
@@ -140,23 +128,23 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                     urls.append(get_url)
                     break  # Break out of the retry loop on success
                 else:
-                    raise requests.exceptions.HTTPError(
-                        f"HTTP error: {response.status_code}")
+                    error_msg = "HTTP request error"
+                    err(error_msg, response.status_code,
+                        requests.exceptions.HTTPError)
 
             except requests.exceptions.HTTPError as e:
                 if response.status_code == 500:
                     attempts += 1
-                    logging.error(
-                        f"Error forming request URL for {cid}; attempt {attempts} of {max_retries}. Retrying...",)
+                    log_err(
+                        f"Error forming request url for {cid}. Retrying (attempt {attempts} of {max_retries})...",)
                     time.sleep(retry_delay)
                 else:
-                    logging.error(f"HTTP error occurred: {e}")
-                    break
+                    err("HTTP error occurred", e, type(e))
             except Exception as e:
-                logging.error(f"Unexpected error: {e}")
+                err("Unexpected error getting urls", e)
                 break
         if attempts >= max_retries:
-            raise RuntimeError(
-                f"Failed to retrieve urls after {max_retries} attempts.")
+            error_msg = f"Failed to retrieve urls after {max_retries} attempts."
+            err(error_msg, e)
 
     return urls

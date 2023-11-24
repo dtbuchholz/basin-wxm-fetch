@@ -1,10 +1,9 @@
 
-"""Query wxm data at remote IPFS parquet files."""
+"""Query wxm data at remote IPFS parquet files using polars."""
 
-import logging
 import polars as pl
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+from utils import format_unix, err, log_info
 
 # Read from parquet files in a data directory
 #
@@ -29,17 +28,47 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Create a dataframe from remote parquet files
 def get_df(remote_files: list[str]) -> pl.DataFrame:
-    logging.info("Creating dataframe from remote (IPFS)...")
-
     if not remote_files:
-        raise ValueError("No remote parquet files provided.")
+        err("No remote parquet files provided",
+            ValueError("Invalid input"), ValueError)
 
     try:
         df = pl.scan_parquet(remote_files).collect()
         return df
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        raise
+        err("Error in get_df", e)
+
+
+# Get the timestamp range from the dataframe, or use the provided start and end
+# Note: timestamp range for Oct 15-21 data: 1697328000000 to 1697932798895
+def get_timerange(df: pl.DataFrame, start: int, end: int) -> (int, int):
+    # If no start or end time was provided, default to the min/max of the dataset
+    if start is None or end is None:
+        # Get timestamp range from data
+        min_time, max_time = query_timestamp_range(df)
+        if start is None:
+            start = min_time
+        if end is None:
+            end = max_time
+    log_info(
+        f"Query range: {format_unix(start)} to {format_unix(end)}")
+    return (start, end)
+
+
+# Execute all queries (below) on the dataframe for a given time range
+def execute_queries(df: pl.DataFrame, start: int, end: int):
+    # Query for averages across all columns (except device_id, timestamp,
+    # model). Also, query total precipitation, number of unique devices, and
+    # number of unique models.
+    try:
+        averages = query_average_all(df, start, end)
+        total_precipitation = query_agg_precipitation_acc(df, start, end)
+        num_devices = query_num_unique_devices(df)
+        num_models = query_num_unique_models(df)
+
+        return (averages, total_precipitation, num_devices, num_models)
+    except Exception as e:
+        err("Error in execute_queries", e)
 
 
 # Query the min and max timestamp values from the dataframe
@@ -57,11 +86,9 @@ def query_timestamp_range(df: pl.DataFrame) -> (int, int):
 
             return (min_timestamp, max_timestamp)
         except Exception as e:
-            logging.error(f"Error in query_timestamp_range: {e}")
-            raise
+            err("Error in query_timestamp_range", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
 # Query averages across all columns for time range (except device_id, timestamp, model)
@@ -82,11 +109,9 @@ def query_average_all(df: pl.DataFrame, start: int, end: int) -> pl.DataFrame:
 
             return averages
         except Exception as e:
-            logging.error(f"Error in query_average_all: {e}")
-            raise
+            err("Error in query_average_all", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
 # Query number of unique `device_id` entries
@@ -97,11 +122,9 @@ def query_num_unique_devices(df: pl.DataFrame) -> int:
 
             return unique_devices.shape[0]
         except Exception as e:
-            logging.error(f"Error in query_num_unique_devices: {e}")
-            raise
+            err("Error in query_num_unique_devices", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
 # Query number of unique `model` entries
@@ -112,11 +135,9 @@ def query_num_unique_models(df: pl.DataFrame) -> int:
 
             return unique_models.shape[0]
         except Exception as e:
-            logging.error(f"Error in query_num_unique_models: {e}")
-            raise
+            err("Error in query_num_unique_models", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
 # Query total precipitation for time range
@@ -135,11 +156,9 @@ def query_agg_precipitation_acc(df: pl.DataFrame, start: int, end: int) -> float
 
             return total_precipitation[0, "total_precipitation"]
         except Exception as e:
-            logging.error(f"Error in query_agg_precipitation_acc: {e}")
-            raise
+            err("Error in query_agg_precipitation_acc", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
 # Query all rows from the dataframe (for testing)
@@ -147,11 +166,8 @@ def query_all_limit_n(df: pl.DataFrame, n: int) -> pl.DataFrame:
     if df is not None and not df.is_empty():
         try:
             limit = df.head(n)
-
             return limit
         except Exception as e:
-            logging.error(f"Error in query_all_limit_n: {e}")
-            raise
+            err("Error in query_all_limit_n", e)
     else:
-        logging.error("DataFrame is None or empty")
-        raise ValueError("DataFrame is None or empty")
+        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)

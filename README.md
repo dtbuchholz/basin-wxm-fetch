@@ -7,6 +7,7 @@
 ## Table of Contents
 
 - [Background](#background)
+  - [Data](#data)
 - [Install](#install)
 - [Usage](#usage)
   - [Makefile Reference](#makefile-reference)
@@ -16,6 +17,21 @@
 ## Background
 
 This project contains a simple setup wherein data pushed to Tableland Basin (replicated to Filecoin) is fetched remotely and queried with [polars](https://www.pola.rs/).
+
+### Data
+
+The script fetches data from the `wxm2` namespace on a cron schedule. For every run, it will query data and write the results to:
+
+- [Data](./Data.md): Summary metrics for the run, including averages across all columns.
+- [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
+
+The schema for the data is as follows for the averages:
+
+- `device_id` (varchar), `timestamp` (bigint), `temperature` (double), `humidity` (double), `precipitation_accumulated` (double), `wind_speed` (double), `wind_gust` (double), `wind_direction` (double), `illuminance` (double), `solar_irradiance` (double), `fo_uv` (double), `uv_index` (double), `precipitation_rate` (double), `pressure` (double), `model` (varchar)
+
+And there are three additional columns for aggregates:
+
+- `total_precipitation` (float), `num_devices` (int), `num_models` (int)
 
 ## Install
 
