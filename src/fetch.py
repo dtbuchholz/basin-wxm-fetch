@@ -5,26 +5,28 @@ import json
 import time
 import requests
 
+from web3 import Web3
 from utils import err, log_err, log_info
 
 
 # Get publications for wxm2 namespace creator (note: must use legacy contract)
 def get_basin_pubs_legacy(address: str) -> list[str]:
     try:
-        # Run the basin `list` command (note: this is a workaround since wxm2
-        # uses the old contract)
-        command = [
-            'cast', 'call', '0xd0ee658f1203302e35b9b9e3a73cb3472a2c2373',
-            '--rpc-url', 'https://api.calibration.node.glif.io/rpc/v1',
-            'pubsOfOwner(address)(string[])', address
-        ]
-        result = subprocess.run(
-            command,
-            capture_output=True, text=True, check=True
-        )
-        out = result.stdout
-        if out:
-            pubs = json.loads(out)
+        # Get `pubsOfOwner` (note: this is a workaround since wxm2
+        # uses the old contract); load abi
+        with open('basin-abi-old.json') as abi_file:
+            abi = abi_file.read()
+        # Connect to contract & query for publications
+        w3 = Web3(Web3.HTTPProvider(
+            'https://api.calibration.node.glif.io/rpc/v1'))
+        address = Web3.to_checksum_address(
+            '0xd0ee658f1203302e35b9b9e3a73cb3472a2c2373')
+        contract = w3.eth.contract(
+            address=address, abi=abi)
+        pubs = contract.functions.pubsOfOwner(
+            "0x64251043A35ab5D11f04111B8BdF7C03BE9cF0e7").call()
+
+        if pubs:
             return pubs
         else:
             err(f"No publications found for address {address}",
@@ -105,7 +107,7 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
 
 # Form remote URLs for each deal—first get the filename via `dweb.link`, then
 # use Web3.Storage gateway to crete a list of URLs like:
-# `https://<cid>.ipfs.w3s.link/<bamespace>/<publication>/<file>`
+# `https://<cid>.ipfs.w3s.link/<namespace>/<publication>/<file>`
 def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
     base_url = "https://dweb.link/api/v0/"
     urls = []
@@ -142,7 +144,6 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                     err("HTTP error occurred", e, type(e))
             except Exception as e:
                 err("Unexpected error getting urls", e)
-                break
         if attempts >= max_retries:
             error_msg = f"Failed to retrieve urls after {max_retries} attempts."
             err(error_msg, e)

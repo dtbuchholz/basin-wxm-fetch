@@ -5,7 +5,7 @@ import polars as pl
 
 from utils import format_unix, err, log_info
 
-# Read from parquet files in a data directory
+# Read from parquet files on IPFS
 #
 # Schema is as follows:
 #

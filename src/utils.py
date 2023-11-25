@@ -24,9 +24,8 @@ def format_unix(input: str) -> str:
     return dt.utcfromtimestamp(
         input / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
-# Error handler to print error
 
-
+# Error handler to log error & raise exception
 def err(desc: str, e: Exception, e_type: type = RuntimeError) -> None:
     log.error(f"{desc}: {e}")
     raise e_type(f"{desc}: {e}")

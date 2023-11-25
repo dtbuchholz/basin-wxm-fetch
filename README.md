@@ -31,7 +31,7 @@ The schema for the data is as follows for the averages:
 
 And there are three additional columns for aggregates:
 
-- `total_precipitation` (float), `num_devices` (int), `num_models` (int)
+- `total_precipitation` (double), `num_devices` (int), `num_models` (int)
 
 ## Install
 
