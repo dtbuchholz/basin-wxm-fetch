@@ -17,7 +17,7 @@
 
 ## Background
 
-This project contains a simple setup wherein data pushed to Tableland [Basin](https://github.com/tablelandnetwork/basin-cli) (replicated to Filecoin) is fetched remotely and queried with [polars](https://www.pola.rs/).
+This project runs a simple analysis on [WeatherXM](https://weatherxm.com/) data that's pushed to Tableland [Basin](https://github.com/tablelandnetwork/basin-cli) (replicated to Filecoin). It fetches the data remotely and queries it with [polars](https://www.pola.rs/).
 
 ### Data
 
@@ -58,12 +58,12 @@ Most of the columns above are included in the mean calculations, and there are t
 
 To set things up (for local development), you'll need to do the following:
 
-1. Set up the virtual environment: `python -m venv env`
+1. Set up the virtual environment: `make venv`
 2. Source the `env` to use it: `source env/bin/activate`
-3. Upgrade pip: `pip install --upgrade pip`
+3. Upgrade pip and instal: `make install`
 4. Install dependencies: `make install`
 
-Or, step 1 and steps 3-4 can be done with `make venv` and `make install`; you just want to make sure you activate the environment in step 2 on your own. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
+You want to make sure you activate the environment in the second step before installing. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
 
 Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) installed to do this, and then run:
 
@@ -81,13 +81,13 @@ To use default time ranges (the full dataset), run:
 make run
 ```
 
-Or, you can define a custom time range with `start` and `end` arguments (in milliseconds), which will be used to filter the data when _queries_ are executed.
+Or, you can define a custom time range with `start` and `end` arguments (Unix epoch timestamps in milliseconds), which will be used to filter the data when _queries_ are executed.
 
 ```sh
 make run start=1700438400000 end=1700783999000
 ```
 
-This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_date` namespace stars on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
+This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace stars on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
 [18:57:25] INFO     Getting publications...done in 1.17s
@@ -102,8 +102,8 @@ This does not impact how Basin deals/data is fetched; _all_ publications and dea
 
 The following flags are available for the `main.py` script:
 
-- `--start`: Start timestamp (in ms) for the query (e.g., 1700438400000). Defaults to full range.
-- `--end`: End timestamp (in ms) for the query (e.g., 1700783999000). Defaults to full range.
+- `--start`: Start timestamp (in Unix ms) for the query (e.g., 1700438400000). Defaults to full range.
+- `--end`: End timestamp (in Unix ms) for the query (e.g., 1700783999000). Defaults to full range.
 - `--verbose`: Enable verbose logging to show stack traces for errors. Defaults to true.
 
 ### Makefile Reference
