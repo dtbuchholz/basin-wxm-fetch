@@ -1,8 +1,7 @@
-import os
 import sys
 
 from config import command_setup
-from run import execute, set_up_df
+from run import execute, prepare_data
 from utils import log_err
 
 
@@ -16,14 +15,12 @@ def main():
       and the most common cell_id.
     - Writes results to a CSV file, appending to a history file if it exists.
     """
-    # Get the current working directory (used during file writes)
-    cwd = os.getcwd()
+    # Get the `start` and `end` (only used in data range queries, default is None)
     start, end = command_setup()
-    # Note: the `start` and `end` args are only used in data range queries
 
     try:
-        df = set_up_df()  # Fetch & query data from remote parquet files
-        execute(df, cwd, start, end)  # Execute queries and write results
+        df = prepare_data()  # Fetch & query data from remote parquet files
+        execute(df, start, end)  # Execute queries and write results
 
     except RuntimeError as e:
         log_err(f"Error occurred during run: {e}")

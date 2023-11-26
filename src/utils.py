@@ -19,15 +19,14 @@ logging.basicConfig(
     level=logging.INFO,
     format=FORMAT,
     datefmt="[%X]",
-    handlers=[RichHandler(show_path=False, console=console)]
+    handlers=[RichHandler(show_path=False, console=console)],
 )
 log = logging.getLogger("rich")
 
 
 def format_unix_ms(input: str) -> str:
     """Formats a unix timestamp (in milliseconds) to a human readable string."""
-    return datetime.utcfromtimestamp(
-        input / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.utcfromtimestamp(input / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def get_current_date() -> str:

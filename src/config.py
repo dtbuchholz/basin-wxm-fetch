@@ -9,7 +9,7 @@ log_traceback = True
 def command_setup() -> (int | None, int | None):
     """
     Sets up command line argument parsing, returning the start and end
-    timestamps (defaults to None if not provided). Flags include: 
+    timestamps (defaults to None if not provided). Flags include:
     - `--start`: Start timestamp for data range in unix ms (e.g., 1700438400000)
     - `--end`: End timestamp for data range in unix ms (e.g., 1700783999000)
     - `--verbose`: Enable verbose error logging with tracebacks (default: true)
@@ -20,13 +20,26 @@ def command_setup() -> (int | None, int | None):
     global log_traceback
 
     parser = argparse.ArgumentParser(
-        description="Fetch Basin wxm data and run queries.")
-    parser.add_argument("--start", type=int, default=None,
-                        help="Start timestamp for data range in unix ms (e.g., 1700438400000)")
-    parser.add_argument("--end", type=int, default=None,
-                        help="End timestamp for data range in unix ms (e.g., 1700783999000)")
-    parser.add_argument("--verbose", type=int, default=True,
-                        help="Enable verbose error logging with tracebacks (default: true)")
+        description="Fetch Basin wxm data and run queries."
+    )
+    parser.add_argument(
+        "--start",
+        type=int,
+        default=None,
+        help="Start timestamp for data range in unix ms (e.g., 1700438400000)",
+    )
+    parser.add_argument(
+        "--end",
+        type=int,
+        default=None,
+        help="End timestamp for data range in unix ms (e.g., 1700783999000)",
+    )
+    parser.add_argument(
+        "--verbose",
+        type=int,
+        default=True,
+        help="Enable verbose error logging with tracebacks (default: true)",
+    )
 
     # Parse the arguments for start and end time query ranges; also verbose logging
     # Default to `None` and let the queries use full range if no start/end
