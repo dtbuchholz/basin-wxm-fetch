@@ -1,33 +1,15 @@
-"""Fetch Basin wxm data, run queries on remote files, and store a history of results in local files."""
+"""Set up a dataframe for remote files, execute queries, and write to CSV and markdown."""
 
-import os
-import argparse
-import io
 import contextlib
-from datetime import datetime as dt
+import io
+import os
+
 import polars as pl
 
-from fetch import get_basin_pubs_legacy, get_basin_deals, get_basin_urls
-from query import get_df, execute_queries
-from utils import format_unix, err, wrap_task
-
-
-# Set up command line argument parsing, returning the start and end timestamps
-def command_setup() -> (int, int):
-    parser = argparse.ArgumentParser(
-        description="Fetch Basin wxm data and run queries.")
-    parser.add_argument("--start", type=int, default=None,
-                        help="Start timestamp for data range in unix milliseconds")
-    parser.add_argument("--end", type=int, default=None,
-                        help="End timestamp for data range in unix milliseconds")
-
-    # Parse the arguments for start and end time ranges, used in queries
-    args = parser.parse_args()
-    # Default to `None` and let the queries define the range as min and/or max
-    # timestamp from data
-    start = args.start
-    end = args.end
-    return (start, end)
+from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
+from query import (get_df, query_average_all, query_agg_precipitation_acc,
+                   query_mode_cell_id, query_num_unique_devices, query_timestamp_range)
+from utils import err, get_current_date, format_unix_ms, wrap_task
 
 
 # Query Basin for publications, deals, and remote parquet files, returning a
@@ -35,11 +17,10 @@ def command_setup() -> (int, int):
 def set_up_df() -> pl.DataFrame:
     # Get publications for wxm2 namespace creator (note: must use legacy
     # contract)
-    pubs = wrap_task(lambda: get_basin_pubs_legacy(
-        "0x64251043A35ab5D11f04111B8BdF7C03BE9cF0e7"), "Getting publications...")
-    # Filter for only wxm2 namespace (gets rid of testing-only data)
-    active_pubs = [item for item in pubs if item.startswith('wxm2')]
-
+    pubs = wrap_task(lambda: get_basin_pubs(
+        "0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5"), "Getting publications...")
+    # Filter for only `xm_data` namespace (get rid of testing-only data)
+    active_pubs = [item for item in pubs if item.startswith("xm_data")]
     # Get deals for each publication, also inserting the `namespace.publication`
     # into the returned objects (used in forming URL path for IPFS requests)
     deals = wrap_task(lambda: get_basin_deals(
@@ -49,38 +30,75 @@ def set_up_df() -> pl.DataFrame:
     # Create a dataframe from the remote parquet files at the IPFS URLs
     df = wrap_task(lambda: get_df(urls),
                    "Creating dataframe from remote IPFS files...")
+
     return df
 
 
 # Execute queries and write results to files
-def execute(df: pl.DataFrame, cwd: str, start: int, end: int) -> None:
-    averages, total_precipitation, num_devices, num_models = wrap_task(lambda: execute_queries(
-        df, start, end),
-        "Executing queries...")
-    df_final = format_df(averages, total_precipitation,
-                         num_devices, num_models)
-    wrap_task(lambda: write_results(df_final, cwd, start, end),
+def execute(df: pl.DataFrame, cwd: str, start: int | None, end: int | None) -> None:
+    (
+        averages,
+        total_precipitation,
+        num_devices,
+        cell_mode,
+        start,
+        end
+    ) = wrap_task(lambda: execute_queries(df, start, end),
+                  "Executing queries...")
+    df_final = prepare_df(averages, total_precipitation,
+                          num_devices, cell_mode, start, end)
+    wrap_task(lambda: write_results(df_final, cwd),
               "Writing results to files...")
 
 
-# Format the dataframe with the run date, total precipitation, and number of devices and models
-def format_df(averages: pl.DataFrame, total_precipitation: float, num_devices: int, num_models: int) -> pl.DataFrame:
-    current_datetime = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    df_with_run_date = averages.insert_column(0, pl.Series(
-        "job_date", [current_datetime]))
-    df = df_with_run_date.with_columns([
+# Execute all queries on the dataframe for a given time range
+def execute_queries(df: pl.DataFrame, start: int | None, end: int | None):
+    # Query for averages across all columns (except device_id, timestamp,
+    # model, name, cell_id and lat/long). Also, query total precipitation,
+    # number of unique devices, and number of unique models.
+    try:
+        averages = query_average_all(df, start, end)
+        total_precipitation = query_agg_precipitation_acc(df, start, end)
+        num_devices = query_num_unique_devices(df, start, end)
+        cell_mode = query_mode_cell_id(df, start, end)
+        # When writing to files, if `start` or `end` are None, query the min/max
+        # timestamp values in the dataframe
+        if start is None or end is None:
+            min, max = query_timestamp_range(df)
+            start = min if start is None else start
+            end = max if end is None else end
+
+        return (averages, total_precipitation, num_devices, cell_mode, start, end)
+    except Exception as e:
+        err("Error in execute_queries", e)
+
+
+# Format the dataframe with the run date, total precipitation, device count,
+# cell mode, and start/end query time range—used when writing to files
+def prepare_df(averages: pl.DataFrame, total_precipitation: float, num_devices: int, cell_mode: int, start: int, end: int) -> pl.DataFrame:
+    current_datetime = get_current_date()
+    # Include run data qnd query ranges
+    run_info = pl.DataFrame([
+        pl.Series("job_date", [current_datetime]),
+        pl.Series("range_start", [start]),
+        pl.Series("range_end", [end])
+    ])
+    averages_with_run_info = pl.concat([run_info, averages], how='horizontal')
+    # Also include non-averaging data
+    df = averages_with_run_info.with_columns([
         pl.Series("total_precipitation", [total_precipitation]),
         pl.Series("num_devices", [num_devices]),
-        pl.Series("num_models", [num_models])
+        pl.Series("cell_mode", [cell_mode])
     ])
 
     return df
 
-
 # Write to a csv file for history and markdown for current state
-def write_results(df: pl.DataFrame, cwd: str, start: int, end: int) -> None:
+
+
+def write_results(df: pl.DataFrame, cwd: str) -> None:
     write_history_csv(df, cwd)
-    write_markdown(df, cwd, start, end)
+    write_markdown(df, cwd)
 
 
 # Append the run's dataframe results to a csv file
@@ -101,11 +119,16 @@ def write_history_csv(df: pl.DataFrame, cwd: str) -> None:
 
 
 # Overwrite the run's dataframe results to a markdown file
-def write_markdown(df: pl.DataFrame, cwd: str, start: int, end: int) -> None:
+def write_markdown(df: pl.DataFrame, cwd: str) -> None:
     # Overwrite the summary results to a markdown file, first converting
     # column names from snake case to sentence case
     try:
         markdown_file = os.path.join(cwd, "Data.md")
+        # Get job date and the start/end of the query range; needed before we
+        # make formatting changes to the dataframe
+        job_date = df['job_date'][0]
+        range_start = df['range_start'][0]
+        range_end = df['range_end'][0]
 
         # Capture stdout, which prints a markdown table of the dataframe
         output = io.StringIO()
@@ -127,14 +150,13 @@ def write_markdown(df: pl.DataFrame, cwd: str, start: int, end: int) -> None:
 
         # Write the markdown table to the file with metadata
         with open(markdown_file, 'w') as md_file:
-            # Format run date and time range
-            current_date = dt.now().strftime("%Y-%m-%d")
-            start_formatted = format_unix(start)
-            end_formatted = format_unix(end)
+            # Format time range
+            start_formatted = format_unix_ms(range_start)
+            end_formatted = format_unix_ms(range_end)
             # Write to the file
             md_file.write(f"## Data\n\n")
             md_file.write(
-                f"Generated on _{current_date}_ for data in range _{start_formatted}_ to _{end_formatted}_\n\n")
+                f"Generated on _{job_date}_ for data in range _{start_formatted}_ to _{end_formatted}_\n\n")
             md_file.write(markdown_table)
     except Exception as e:
         err("Error in write_markdown", e)

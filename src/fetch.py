@@ -1,48 +1,14 @@
 """Get Basin wxm publications & files to set up remote URLs for further queries."""
 
-import subprocess
 import json
+import subprocess
 import time
 import requests
 
-from web3 import Web3
-from utils import err, log_err, log_info
+from utils import err, log_info, log_warn
 
 
-# Get publications for wxm2 namespace creator (note: must use legacy contract)
-def get_basin_pubs_legacy(address: str) -> list[str]:
-    try:
-        # Get `pubsOfOwner` (note: this is a workaround since wxm2
-        # uses the old contract); load abi
-        with open('basin-abi-old.json') as abi_file:
-            abi = abi_file.read()
-        # Connect to contract & query for publications
-        w3 = Web3(Web3.HTTPProvider(
-            'https://api.calibration.node.glif.io/rpc/v1'))
-        address = Web3.to_checksum_address(
-            '0xd0ee658f1203302e35b9b9e3a73cb3472a2c2373')
-        contract = w3.eth.contract(
-            address=address, abi=abi)
-        pubs = contract.functions.pubsOfOwner(
-            "0x64251043A35ab5D11f04111B8BdF7C03BE9cF0e7").call()
-
-        if pubs:
-            return pubs
-        else:
-            err(f"No publications found for address {address}",
-                ValueError("Invalid input"), ValueError)
-
-    except subprocess.CalledProcessError as e:
-        error_msg = f"Error getting basin publications for address {address}"
-        err(error_msg, e, type(e))
-
-    except json.JSONDecodeError as e:
-        error_msg = f"JSON decoding error for address {address}"
-        err(error_msg, e, type(e))
-
-
-# Get publications for wxm2 namespace creator (note: this is the new contract,
-# so it's not used in the current wxm use case)
+# Get publications for a namespace creator at `address`
 def get_basin_pubs(address: str) -> list[str]:
     try:
         command = [
@@ -54,7 +20,7 @@ def get_basin_pubs(address: str) -> list[str]:
         )
         out = result.stdout
         if out:
-            pubs = json.loads(out)
+            pubs = out.strip().split('\n')
             return pubs
         else:
             err(f"No publications found for address {address}",
@@ -137,7 +103,7 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
             except requests.exceptions.HTTPError as e:
                 if response.status_code == 500:
                     attempts += 1
-                    log_err(
+                    log_warn(
                         f"Error forming request url for {cid}. Retrying (attempt {attempts} of {max_retries})...",)
                     time.sleep(retry_delay)
                 else:

@@ -25,13 +25,33 @@ The script fetches data from the WeatherXM's `wxm2` Basin namespace on a cron sc
 - [Data](./Data.md): Summary metrics for the run, including averages across all columns.
 - [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
 
-The schema for the data is as follows for the averages:
+The schema for the data is as follows:
 
-- `device_id` (varchar), `timestamp` (bigint), `temperature` (double), `humidity` (double), `precipitation_accumulated` (double), `wind_speed` (double), `wind_gust` (double), `wind_direction` (double), `illuminance` (double), `solar_irradiance` (double), `fo_uv` (double), `uv_index` (double), `precipitation_rate` (double), `pressure` (double), `model` (varchar)
+- `device_id` (varchar): Unique identifier for the device.
+- `timestamp` (bigint): Timestamp (unix milliseconds).
+- `temperature` (double): Temperature (Celsius).
+- `humidity` (double): Relative humidity reading (%).
+- `precipitation_accumulated` (double): Total precipitation (millimeters).
+- `wind_speed` (double): Wind speed (meters per second).
+- `wind_gust` (double): Wind gust (meters per second).
+- `wind_direction` (double): Wind direction (degrees).
+- `illuminance` (double): Illuminance (lux).
+- `solar_irradiance` (double): Solar irradiance (watts per square meter).
+- `fo_uv` (double): UV-related index value.
+- `uv_index` (double): UV index.
+- `precipitation_rate` (double): Precipitation rate (millimeters per hour).
+- `pressure` (double): Pressure (HectoPascals).
+- `model` (varchar): Model of the device (either WXM WS1000 or WXM WS2000).
+- `name` (varchar): Name of the device.
+- `cell_id` (varchar): Cell ID of the device.
+- `lat` (double): Latitude of the cell.
+- `lon` (double): Longitude of the cell.
 
-And there are three additional columns for aggregates:
+Most of the columns above are included in the mean calculations, and there are three additional columns for aggregates:
 
-- `total_precipitation` (double), `num_devices` (int), `num_models` (int)
+- `total_precipitation` (double): Total `precipitation_accumulated` (millimeters).
+- `num_devices` (int): Count of unique `device_id` values.
+- `cell_mode` (varchar): Most common `cell_id` value.
 
 ## Install
 
@@ -44,6 +64,8 @@ To set things up on your machine, you'll need to do the following:
 Then, you can use the Makefile command to install dependencies: `make install`
 
 Alternatively, you can do all of these in one step (for local development) with: `make setup`
+
+Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
 
 ## Usage
 
