@@ -56,21 +56,24 @@ Most of the columns above are included in the mean calculations, and there are t
 
 ## Install
 
-To set things up on your machine, you'll need to do the following:
+To set things up (for local development), you'll need to do the following:
 
 1. Set up the virtual environment: `python -m venv env`
-2. Upgrade pip: `pip install --upgrade pip`
-3. Source the `env` to use it: `source env/bin/activate`
+2. Source the `env` to use it: `source env/bin/activate`
+3. Upgrade pip: `pip install --upgrade pip`
+4. Install dependencies: `make install`
 
-Then, you can use the Makefile command to install dependencies: `make install`
+Or, step 1 and steps 3-4 can be done with `make venv` and `make install`; you just want to make sure you activate the environment in step 2 on your own. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
 
-Alternatively, you can do all of these in one step (for local development) with: `make setup`
+Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) installed to do this, and then run:
 
-Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
+```sh
+go install github.com/tablelandnetwork/basin-cli/cmd/basin@latest
+```
 
 ## Usage
 
-Running `src/main.py` will fetch remote files from Tableland [Basin](https://github.com/tablelandnetwork/basin-cli), load them into a `polars` dataframe, and then run queries on the data.
+Running `src/main.py` will fetch remote files from Tableland Basin, load them into a `polars` dataframe, and then run queries on the data.
 
 To use default time ranges (the full dataset), run:
 
@@ -90,7 +93,7 @@ This does not impact how Basin deals/data is fetched; _all_ publications and dea
 [18:57:25] INFO     Getting publications...done in 1.17s
 [18:57:27] INFO     Getting deals for publications...done in 2.73s
 [18:57:28] INFO     Forming remote URLs for deals...done in 0.68s
-[18:59:07] INFO     Creating dataframe from remote IPFS files...done in 99.28s
+[18:59:07] INFO     Creating dataframe from remote files...done in 99.28s
 [18:59:34] INFO     Executing queries...done in 26.32s
 ⠙ Writing results to files...
 ```
@@ -99,17 +102,17 @@ This does not impact how Basin deals/data is fetched; _all_ publications and dea
 
 The following flags are available for the `main.py` script:
 
-- `--start`: Start timestamp (in ms) for the query (e.g., 1700438400000) Defaults to full range.
-- `--end`: End timestamp (in ms) for the query (e.g., 1700783999000) Defaults to full range.
-- `--verbose`: Enable verbose logging to show stack traces for errors (defaults to true).
+- `--start`: Start timestamp (in ms) for the query (e.g., 1700438400000). Defaults to full range.
+- `--end`: End timestamp (in ms) for the query (e.g., 1700783999000). Defaults to full range.
+- `--verbose`: Enable verbose logging to show stack traces for errors. Defaults to true.
 
 ### Makefile Reference
 
 The following defines all commands available in the Makefile:
 
-- `make install`: Install dependencies with `pip`.
+- `make install`: Install dependencies with `pip`, upgrading pip first.
 - `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write to metric summary files.
-- `make setup`: Create a virtual environment, upgrade pip, and source your `env` (only for local development).
+- `make venv`: Create a virtual environment (only for local development).
 - `make freeze`: Freeze dependencies (only needed if you make changes to the deps during local development).
 
 ## Contributing
