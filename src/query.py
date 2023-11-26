@@ -5,33 +5,43 @@ import polars as pl
 
 from utils import err
 
-# Read from parquet files on IPFS
-#
-# Schema is as follows:
-#
-# device_id (varchar)
-# timestamp (bigint)
-# temperature (double)
-# humidity (double)
-# precipitation_accumulated (double)
-# wind_speed (double)
-# wind_gust (double)
-# wind_direction (double)
-# illuminance (double)
-# solar_irradiance (double)
-# fo_uv (double)
-# uv_index (double)
-# precipitation_rate (double)
-# pressure (double)
-# model (varchar)
-# name (varchar)
-# cell_id (varchar)
-# lat (double)
-# lon (double)
+"""
+Read from parquet files on IPFS
+
+Schema is as follows:
+
+device_id (varchar)
+timestamp (bigint)
+temperature (double)
+humidity (double)
+precipitation_accumulated (double)
+wind_speed (double)
+wind_gust (double)
+wind_direction (double)
+illuminance (double)
+solar_irradiance (double)
+fo_uv (double)
+uv_index (double)
+precipitation_rate (double)
+pressure (double)
+model (varchar)
+name (varchar)
+cell_id (varchar)
+lat (double)
+lon (double)
+"""
 
 
-# Create a dataframe from remote parquet files
 def get_df(remote_files: list[str]) -> pl.DataFrame:
+    """
+    Create a dataframe from remote parquet files.
+
+    Args:
+        remote_files (list[str]): The list of remote parquet files.
+
+    Returns:
+        pl.DataFrame: A Polars DataFrame from the remote parquet files.
+    """
     if not remote_files:
         err("No remote parquet files provided",
             ValueError("Invalid input"), ValueError)
@@ -46,7 +56,6 @@ def get_df(remote_files: list[str]) -> pl.DataFrame:
         err("Error in get_df", e)
 
 
-# Query the min and max timestamp values from the dataframe
 def query_timestamp_range(df: pl.DataFrame) -> (int, int):
     """
     Returns the min and max timestamp values from the provided DataFrame.
@@ -75,8 +84,19 @@ def query_timestamp_range(df: pl.DataFrame) -> (int, int):
         err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
-# Query averages across all columns for time range (except device_id, timestamp, model)
 def query_average_all(df: pl.DataFrame, start: int, end: int) -> pl.DataFrame:
+    """
+    Returns the average values for all columns in the provided DataFrame. This
+    excludes device_id, timestamp, model, name, cell_id, lat, and lon.
+
+    Args:
+        df (pl.DataFrame): The DataFrame to query.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        pl.DataFrame: A DataFrame containing the averages for all columns.
+    """
     if df is not None and not df.is_empty():
         try:
             # List of columns to calculate the average
@@ -105,8 +125,18 @@ def query_average_all(df: pl.DataFrame, start: int, end: int) -> pl.DataFrame:
         err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
-# Query number of unique `device_id` entries
 def query_num_unique_devices(df: pl.DataFrame, start: int, end: int) -> int:
+    """
+    Returns the number of unique device_id entries in the provided DataFrame.
+
+    Args:
+        df (pl.DataFrame): The DataFrame to query.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        int: The number of unique device_id entries.
+    """
     if df is not None and not df.is_empty():
         try:
             selection = pl.col("device_id").unique().alias("num_devices")
@@ -128,8 +158,18 @@ def query_num_unique_devices(df: pl.DataFrame, start: int, end: int) -> int:
         err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
-# Query most common `cell_id` value
 def query_mode_cell_id(df: pl.DataFrame, start: int, end: int) -> int:
+    """
+    Returns the most common cell_id value in the provided DataFrame.
+
+    Args:
+        df (pl.DataFrame): The DataFrame to query.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        int: The most common cell_id value.
+    """
     if df is not None and not df.is_empty():
         try:
             selection = pl.col("cell_id").drop_nulls(
@@ -153,8 +193,18 @@ def query_mode_cell_id(df: pl.DataFrame, start: int, end: int) -> int:
         err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
 
 
-# Query total precipitation for time range
 def query_agg_precipitation_acc(df: pl.DataFrame, start: int, end: int) -> float:
+    """
+    Returns the total precipitation value for the provided DataFrame.
+
+    Args:
+        df (pl.DataFrame): The DataFrame to query.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        float: The total precipitation value.
+    """
     if df is not None and not df.is_empty():
         try:
             selection = pl.col(

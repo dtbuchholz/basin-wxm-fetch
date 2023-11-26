@@ -12,11 +12,19 @@ from query import (get_df, query_average_all, query_agg_precipitation_acc,
 from utils import err, get_current_date, format_unix_ms, wrap_task
 
 
-# Query Basin for publications, deals, and remote parquet files, returning a
-# dataframe of the IPFS data
 def set_up_df() -> pl.DataFrame:
-    # Get publications for wxm2 namespace creator (note: must use legacy
-    # contract)
+    """
+    Query Basin for publications, deals, and remote parquet files, returning a
+    dataframe of the IPFS data.
+
+    Returns:
+        pl.DataFrame: The dataframe of IPFS data.
+
+    Raises:
+        Exception: If there is an error getting the publications, deals, or
+            remote parquet files.
+    """
+    # Get publications for `xm_data` namespace creator
     pubs = wrap_task(lambda: get_basin_pubs(
         "0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5"), "Getting publications...")
     # Filter for only `xm_data` namespace (get rid of testing-only data)
@@ -34,8 +42,19 @@ def set_up_df() -> pl.DataFrame:
     return df
 
 
-# Execute queries and write results to files
 def execute(df: pl.DataFrame, cwd: str, start: int | None, end: int | None) -> None:
+    """
+    Execute queries and write results to files.
+
+    Args:
+        df (pl.DataFrame): The dataframe to query.
+        cwd (str): The current working directory.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        None
+    """
     (
         averages,
         total_precipitation,
@@ -53,9 +72,22 @@ def execute(df: pl.DataFrame, cwd: str, start: int | None, end: int | None) -> N
 
 # Execute all queries on the dataframe for a given time range
 def execute_queries(df: pl.DataFrame, start: int | None, end: int | None):
-    # Query for averages across all columns (except device_id, timestamp,
-    # model, name, cell_id and lat/long). Also, query total precipitation,
-    # number of unique devices, and number of unique models.
+    """
+    Execute all queries on the dataframe for a given time range. This will query
+    for averages across all columns (except device_id, timestamp, model, name,
+    cell_id and lat/long). Also, query total precipitation, number of unique
+    devices, and number of unique models.
+
+    Args:
+        df (pl.DataFrame): The dataframe to query.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        Tuple[pl.DataFrame, float, int, int, int, int]: The dataframe averages,
+            total precipitation, number of unique devices, cell mode, and start
+            and end of the query time range.
+    """
     try:
         averages = query_average_all(df, start, end)
         total_precipitation = query_agg_precipitation_acc(df, start, end)
@@ -73,9 +105,22 @@ def execute_queries(df: pl.DataFrame, start: int | None, end: int | None):
         err("Error in execute_queries", e)
 
 
-# Format the dataframe with the run date, total precipitation, device count,
-# cell mode, and start/end query time range—used when writing to files
 def prepare_df(averages: pl.DataFrame, total_precipitation: float, num_devices: int, cell_mode: int, start: int, end: int) -> pl.DataFrame:
+    """
+    Format the dataframe with the run date, total precipitation, device count,
+    cell mode, and start/end query time range—used when writing to files.
+
+    Args:
+        averages (pl.DataFrame): The run's dataframe averages.
+        total_precipitation (float): The run's total precipitation.
+        num_devices (int): The run's number of unique devices.
+        cell_mode (int): The run's cell mode.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns:
+        pl.DataFrame: The full dataframe with run info.
+    """
     current_datetime = get_current_date()
     # Include run data qnd query ranges
     run_info = pl.DataFrame([
@@ -93,16 +138,34 @@ def prepare_df(averages: pl.DataFrame, total_precipitation: float, num_devices: 
 
     return df
 
-# Write to a csv file for history and markdown for current state
-
 
 def write_results(df: pl.DataFrame, cwd: str) -> None:
+    """
+    Write the run's dataframe results to a csv file for history and markdown
+    for current state.
+
+    Args:
+        df (pl.DataFrame): The run's dataframe results.
+        cwd (str): The current working directory.
+
+    Returns:
+        None
+    """
     write_history_csv(df, cwd)
     write_markdown(df, cwd)
 
 
-# Append the run's dataframe results to a csv file
 def write_history_csv(df: pl.DataFrame, cwd: str) -> None:
+    """
+    Append the run's dataframe results to a csv file.
+
+    Args:
+        df (pl.DataFrame): The run's dataframe results.
+        cwd (str): The current working directory.
+
+    Returns:
+        None
+    """
     try:
         history_file = os.path.join(cwd, "history.csv")
         # Check if the file exists—if so, append to it; otherwise, create it
@@ -118,10 +181,17 @@ def write_history_csv(df: pl.DataFrame, cwd: str) -> None:
         raise
 
 
-# Overwrite the run's dataframe results to a markdown file
 def write_markdown(df: pl.DataFrame, cwd: str) -> None:
-    # Overwrite the summary results to a markdown file, first converting
-    # column names from snake case to sentence case
+    """
+    Overwrite the run's dataframe results to a markdown file.
+
+    Args:
+        df (pl.DataFrame): The run's dataframe results.
+        cwd (str): The current working directory.
+
+    Returns:
+        None
+    """
     try:
         markdown_file = os.path.join(cwd, "Data.md")
         # Get job date and the start/end of the query range; needed before we

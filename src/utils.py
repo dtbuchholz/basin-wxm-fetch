@@ -24,46 +24,46 @@ logging.basicConfig(
 log = logging.getLogger("rich")
 
 
-# Format unix timestamp (in milliseconds) to human readable string
 def format_unix_ms(input: str) -> str:
+    """Formats a unix timestamp (in milliseconds) to a human readable string."""
     return datetime.utcfromtimestamp(
         input / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
 
-# Get current time as human readable string
 def get_current_date() -> str:
+    """Gets the current date as a human readable string."""
     return datetime.now().strftime("%Y-%m-%d")
 
 
-# Error handler to log error & raise exception
 def err(desc: str, e: Exception, e_type: type = RuntimeError) -> None:
+    """Logs an error with a description and raises an exception."""
     if log_traceback is True:
         log.error(traceback.format_exc())
     log.error(f"{desc}: {e}")
     raise e_type(f"{desc}: {e}")
 
 
-# Log errors without raising
 def log_err(desc: str) -> None:
+    """Logs an error with a description and traceback if enabled."""
     if log_traceback is True:
         log.error(traceback.format_exc())
     log.error(f"{desc}")
 
 
-# Log info
 def log_info(desc: str) -> None:
+    """Logs an info message with a description."""
     log.info(f"{desc}")
 
 
-# Log warning
 def log_warn(desc: str) -> None:
+    """Logs a warning with a description and traceback if enabled."""
     if log_traceback is True:
         log.error(traceback.format_exc())
     log.warning(f"{desc}")
 
 
-# Pretty print status of pending requests
 def wrap_task(task: Callable[..., Any], desc: str) -> Any:
+    """Wraps a function with a description and logs the duration of the task."""
     with console.status(f"[bold green]{desc}") as status:
         start_time = time.time()
         result = task()

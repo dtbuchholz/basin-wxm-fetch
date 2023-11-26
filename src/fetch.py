@@ -5,11 +5,20 @@ import subprocess
 import time
 import requests
 
-from utils import err, log_info, log_warn
+from utils import err, log_warn
 
 
-# Get publications for a namespace creator at `address`
 def get_basin_pubs(address: str) -> list[str]:
+    """
+    Get all publications for a namespace creator at `address`. For example, the
+    creator of `xm_data.p1` is `0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5`.
+
+    Args:
+        address (str): The address of the namespace creator.
+
+    Returns:
+        list[str]: The list of publications for the namespace.
+    """
     try:
         command = [
             'basin', 'publication', 'list', '--address', address
@@ -35,10 +44,15 @@ def get_basin_pubs(address: str) -> list[str]:
         err(error_msg, e, type(e))
 
 
-# Get deals for each publication, also inserting the corresponding
-# `namespace.publication` into the returned objects (used in forming URL path)
 def get_basin_deals(pubs: list[str]) -> list[object]:
+    """
+    Get deals for one or more publications, also inserting the corresponding
+    `namespace.publication` into the returned objects (used in forming URL
+    path when requesting remote files).
+    """
     deals = []
+    # For each publication, run the `basin` command to get an array of deal
+    # objects that contain the CID and other metadata
     for pub in pubs:
         try:
             command = [
@@ -51,14 +65,16 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             )
             out = result.stdout
             if out:
-                # Convert string output to json
                 pub_deals = json.loads(out)
                 for deal in pub_deals:
-                    # Add publication to deal object
+                    # Add `namespace.publication` as `publication` to deal
+                    # object; helps with forming URL path when requesting
                     deal['publication'] = pub
                 deals.extend(pub_deals)
             else:
-                log_info(f"No deals found for publication {pub}")
+                # Note: this won't throw. It's possible that deals haven't been
+                # made yet, so it's ideal to keep things going.
+                log_warn(f"No deals found for publication {pub}")
 
         except subprocess.CalledProcessError as e:
             error_msg = f"Error finding basin deal for publication {pub}"
@@ -68,16 +84,36 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             error_msg = f"JSON decoding error for publication {pub}"
             err(error_msg, e, type(e))
 
+    # Throw if no deals exist for any publications
+    if (len(deals) == 0):
+        err("No deals found for any publications",
+            ValueError("Invalid input"), ValueError)
+
     return deals
 
 
-# Form remote URLs for each deal—first get the filename via `dweb.link`, then
-# use Web3.Storage gateway to crete a list of URLs like:
-# `https://<cid>.ipfs.w3s.link/<namespace>/<publication>/<file>`
 def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
+    """
+    Form remote request URLs for each deal. This is needed in order to get the
+    parquet filename (via `dweb.link`) and then form the full URL for the as:
+    `https://<cid>.ipfs.w3s.link/<namespace>/<publication>/<file>`
+
+    Args:
+        deals (list[object]): The list of deals.
+        max_retries (int): he maximum number of times to retry a failed
+        request. Defaults to 10.
+        retry_delay (int): he number of seconds to wait between retries.
+        Defaults to 2.
+
+    Returns:
+        list[str]: The list of remote URLs.
+    """
+    # Use dweb.link to quickly get the filename for each deal where the path
+    # includes the CID, namespace, and publication
     base_url = "https://dweb.link/api/v0/"
     urls = []
 
+    # For each publication, get the parquet filenames and create a w3s URL
     for pub in pubs:
         cid = pub['cid']
         formatted_path = pub['publication'].replace('.', '/')
@@ -101,6 +137,7 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                         requests.exceptions.HTTPError)
 
             except requests.exceptions.HTTPError as e:
+                # Sometimes, 500 errors will occur and requires retry logic
                 if response.status_code == 500:
                     attempts += 1
                     log_warn(
