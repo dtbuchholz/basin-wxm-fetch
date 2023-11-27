@@ -5,7 +5,8 @@ import subprocess
 import time
 import requests
 
-from utils import err, log_warn
+from utils import err, is_pinata, log_info, log_warn
+from config import pinata_subdomain, pinata_gateway_token
 
 
 def get_basin_pubs(address: str) -> list[str]:
@@ -113,6 +114,38 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     return deals
 
 
+def format_url(cid: str, pub_path: str, file_name: str) -> str:
+    """
+    Form a remote IPFS URL to download files. It can optionally use a custom
+    Pinata gateway configuration or default to the Web3 Storage public gateway.
+
+    Parameters
+    ----------
+        cid (str): The CID of the deal.
+        pub_path (str): The `namespace/publication` path for the deal.
+        file_name (str): The filename of the parquet file.
+
+    Returns
+    -------
+        str: The remote URL.
+
+    Raises
+    ------
+        Exception: If there is an error forming the URL.
+    """
+    try:
+        if pinata_subdomain is not None and pinata_gateway_token is not None:
+            # Use pinata gateway url and token if provided
+            url = f"https://{pinata_subdomain}.mypinata.cloud/ipfs/{cid}/{pub_path}/{file_name}?pinataGatewayToken={pinata_gateway_token}"
+        else:
+            url = f"https://{cid}.ipfs.w3s.link/{pub_path}/{file_name}"
+
+        return url
+
+    except Exception as e:
+        err("Unexpected error forming url", e)
+
+
 def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
     """
     Form remote request URLs for each deal. This is needed in order to get the
@@ -143,8 +176,8 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
     # For each publication, get the parquet filenames and create a w3s URL
     for pub in pubs:
         cid = pub["cid"]
-        formatted_path = pub["publication"].replace(".", "/")
-        list_url = f"{base_url}ls?arg={cid}/{formatted_path}/"
+        pub_path = pub["publication"].replace(".", "/")
+        list_url = f"{base_url}ls?arg={cid}/{pub_path}/"
 
         attempts = 0
         while attempts < max_retries:
@@ -155,9 +188,9 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                 if response.status_code == 200:
                     data = response.json()
                     file_name = data["Objects"][0]["Links"][0]["Name"]
-                    get_url = (
-                        f"https://{cid}.ipfs.w3s.link/{formatted_path}/{file_name}"
-                    )
+                    # Unsafely hardcode pinata key to make it public (free plan)
+                    # to make it easily accessible to anyone; consider secrets
+                    get_url = format_url(cid, pub_path, file_name)
                     urls.append(get_url)
                     break  # Break out of the retry loop on success
                 else:
@@ -179,5 +212,11 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
         if attempts >= max_retries:
             error_msg = f"Failed to retrieve urls after {max_retries} attempts."
             err(error_msg, e)
+
+    # Provide context on the gateway being used
+    if is_pinata(urls[0]):
+        log_info("Using custom Pinata gateway")
+    else:
+        log_info("Using public Web3 Storage gateway")
 
     return urls

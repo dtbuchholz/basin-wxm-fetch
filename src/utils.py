@@ -34,6 +34,11 @@ def get_current_date() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+def is_pinata(url: str) -> bool:
+    """Returns true if the URL is a Pinata gateway URL (used in logging info)."""
+    return True if "mypinata.cloud" in url else False
+
+
 def err(desc: str, e: Exception, e_type: type = RuntimeError) -> None:
     """Logs an error with a description and raises an exception."""
     if log_traceback is True:

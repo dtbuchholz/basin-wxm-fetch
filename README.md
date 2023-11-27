@@ -10,6 +10,7 @@
   - [Data](#data)
 - [Install](#install)
 - [Usage](#usage)
+  - [Environment variables](#environment-variables)
   - [Flags](#flags)
   - [Makefile Reference](#makefile-reference)
 - [Contributing](#contributing)
@@ -63,7 +64,7 @@ To set things up (for local development), you'll need to do the following:
 3. Upgrade pip and instal: `make install`
 4. Install dependencies: `make install`
 
-You want to make sure you activate the environment in the second step before installing. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp` and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging.
+You want to make sure you activate the environment in the second step before installing. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp`, and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging, and `python-dotenv` loads environment variables.
 
 Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) installed to do this, and then run:
 
@@ -90,13 +91,20 @@ make run start=1700438400000 end=1700783999000
 This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace stars on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[16:59:03] INFO     Getting publications...done in 1.25s
-[16:59:05] INFO     Getting deals for publications...done in 2.08s
-[16:59:06] INFO     Forming remote URLs for deals...done in 0.59s
-[16:59:56] INFO     Creating dataframe from remote files...done in 50.25s
-[17:00:26] INFO     Executing queries...done in 29.88s
+[20:26:55] INFO     Getting publications...done in 1.10s
+[20:26:57] INFO     Getting deals for publications...done in 2.12s
+[20:26:58] INFO     Using public Web3 Storage gateway
+           INFO     Forming remote URLs for deals...done in 0.56s
+[20:28:02] INFO     Creating dataframe from remote files...done in 63.59s
+[20:28:37] INFO     Executing queries...done in 35.65s
 ⠙ Writing results to files...
 ```
+
+### Environment variables
+
+The default IPFS gateway used in requests is a public [Web3 Storage](https://web3.storage/) gateway. Optionally, you can override this with a custom [Pinata IPFS gateway](https://docs.pinata.cloud/docs/dedicated-ipfs-gateways). This will give you a unique domain (e.g., the "aquamarine-..." part of `aquamarine-casual-tarantula-177.mypinata.cloud`) and requires a custom access token. If you want to use a custom gateway, see the `.env.example` file and copy it to `.env`, setting the values for the `PINATA_SUBDOMAIN` and `PINATA_GATEWAY_TOKEN`.
+
+It is not required to do this as the default gateway will work fine when running locally. However, public gateways can sometimes run into rate limiting and cause 429 errors when fetching data—especially, for shared resources like in GitHub Actions. (This projects runs a workflow on a cron schedule that writes to `Data.md` and `history.csv`.)
 
 ### Flags
 

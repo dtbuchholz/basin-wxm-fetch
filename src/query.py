@@ -66,12 +66,13 @@ def create_dataframe(remote_files: list[str], max_retries: int = 3) -> pl.DataFr
                 log_warn(
                     f"Attempt {attempt}/{max_retries} failed: {error_message}. Retrying..."
                 )
-                if attempt >= max_retries:
-                    err(
-                        f"Error in create_dataframe",
-                        ComputeError(error_message),
-                        ComputeError,
-                    )
+            elif "429 Too Many Requests" in error_message:
+                # Catch 429 errors (consider adding retry logic here)
+                err(
+                    "Error in create_dataframe: 429 Too Many Requests",
+                    ComputeError("IPFS rate limit exceeded"),
+                    ComputeError,
+                )
             else:
                 # For any other ComputeError, don't retry and just raise the error
                 err(
