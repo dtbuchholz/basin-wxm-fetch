@@ -90,11 +90,11 @@ make run start=1700438400000 end=1700783999000
 This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace stars on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[18:57:25] INFO     Getting publications...done in 1.17s
-[18:57:27] INFO     Getting deals for publications...done in 2.73s
-[18:57:28] INFO     Forming remote URLs for deals...done in 0.68s
-[18:59:07] INFO     Creating dataframe from remote files...done in 99.28s
-[18:59:34] INFO     Executing queries...done in 26.32s
+[16:59:03] INFO     Getting publications...done in 1.25s
+[16:59:05] INFO     Getting deals for publications...done in 2.08s
+[16:59:06] INFO     Forming remote URLs for deals...done in 0.59s
+[16:59:56] INFO     Creating dataframe from remote files...done in 50.25s
+[17:00:26] INFO     Executing queries...done in 29.88s
 ⠙ Writing results to files...
 ```
 

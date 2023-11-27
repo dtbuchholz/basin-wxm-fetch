@@ -9,7 +9,7 @@ import polars as pl
 
 from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
 from query import (
-    get_df,
+    create_dataframe,
     query_average_all,
     query_agg_precipitation_acc,
     query_mode_cell_id,
@@ -47,7 +47,9 @@ def prepare_data() -> pl.DataFrame:
     )
     urls = wrap_task(lambda: get_basin_urls(deals), "Forming remote URLs for deals...")
     # Create a dataframe from the remote parquet files at the IPFS URLs
-    df = wrap_task(lambda: get_df(urls), "Creating dataframe from remote files...")
+    df = wrap_task(
+        lambda: create_dataframe(urls), "Creating dataframe from remote files..."
+    )
 
     return df
 
