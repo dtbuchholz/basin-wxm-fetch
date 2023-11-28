@@ -1,16 +1,19 @@
 """Utilities for formatting and logging."""
 
+import io
 import logging
+import contextlib
 import time
 import traceback
 from datetime import datetime
+from math import ceil
 from typing import Any, Callable
 
+from polars import Config, DataFrame
 from rich.console import Console
 from rich.logging import RichHandler
 
 from config import log_traceback
-
 
 # Set up pretty logging
 FORMAT = "%(message)s"
@@ -32,6 +35,34 @@ def format_unix_ms(input: str) -> str:
 def get_current_date() -> str:
     """Gets the current date as a human readable string."""
     return datetime.now().strftime("%Y-%m-%d")
+
+
+def format_df_to_markdown(df: DataFrame) -> str:
+    """
+    Format a DataFrame to a markdown table, splitting into two tables of
+    approximately equal widths.
+    """
+    split_at = ceil(df.width / 2)
+    df1 = df.select(df.columns[:split_at])
+    df2 = df.select(df.columns[split_at:])
+
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        with Config(
+            tbl_formatting="ASCII_MARKDOWN",
+            tbl_hide_column_data_types=True,
+            tbl_hide_dataframe_shape=True,
+            set_tbl_width_chars=5000,  # Prevent line wrapping
+            float_precision=3,  # Show 3 decimal points
+            set_fmt_float="full",  # Show full float precision
+            set_tbl_cols=-1,  # Show all columns
+        ):
+            # Replace underscores with spaces and capitalize column names
+            df.columns = [col.replace("_", " ").capitalize() for col in df.columns]
+            print(df1)
+            print()
+            print(df2)
+    return output.getvalue()
 
 
 def is_pinata(url: str) -> bool:

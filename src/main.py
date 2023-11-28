@@ -8,19 +8,20 @@ from utils import log_err
 def main():
     """
     Entrypoint for the wx_data data CLI.
-    - Fetches and queries data from remote parquet files.
-    - Sets up a Polars DataFrame.
+    - Fetches and queries data from remote parquet files on IPFS/Filecoin.
+    - Sets up a Polars LazyFrame.
     - Executes queries for averages across all columns,
     - Executes queries for total precipitation, number of unique devices,
       and the most common cell_id.
     - Writes results to a CSV file, appending to a history file if it exists.
+    - Writes results to a markdown file with the latest run information.
     """
     # Get the `start` and `end` (only used in data range queries, default is None)
     start, end = command_setup()
 
     try:
-        df = prepare_data()  # Fetch & query data from remote parquet files
-        execute(df, start, end)  # Execute queries and write results
+        lf = prepare_data()  # Fetch remote files & create polars LazyFrame
+        execute(lf, start, end)  # Execute queries and write results to files
 
     except RuntimeError as e:
         log_err(f"Error occurred during run: {e}")

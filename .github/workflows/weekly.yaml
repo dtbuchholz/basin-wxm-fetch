@@ -1,9 +1,9 @@
-name: daily
+name: weekly
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * 1" # Run every Monday at midnight UTC
 
 permissions:
   contents: write
@@ -27,17 +27,9 @@ jobs:
           go-version: "1.21"
 
       - name: Set up python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v2 # Set up the python 3.10 environment
         with:
           python-version: "3.10"
-
-      - name: Cache python dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       - name: Install Basin CLI and dependencies
         run: |

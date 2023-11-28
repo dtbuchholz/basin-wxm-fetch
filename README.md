@@ -27,34 +27,6 @@ The script fetches data from the WeatherXM's `xm_data` Basin namespace (created 
 - [Data](./Data.md): Summary metrics for the run, including averages across all columns.
 - [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
 
-The schema for the data is as follows:
-
-- `device_id` (varchar): Unique identifier for the device.
-- `timestamp` (bigint): Timestamp (unix milliseconds).
-- `temperature` (double): Temperature (Celsius).
-- `humidity` (double): Relative humidity reading (%).
-- `precipitation_accumulated` (double): Total precipitation (millimeters).
-- `wind_speed` (double): Wind speed (meters per second).
-- `wind_gust` (double): Wind gust (meters per second).
-- `wind_direction` (double): Wind direction (degrees).
-- `illuminance` (double): Illuminance (lux).
-- `solar_irradiance` (double): Solar irradiance (watts per square meter).
-- `fo_uv` (double): UV-related index value.
-- `uv_index` (double): UV index.
-- `precipitation_rate` (double): Precipitation rate (millimeters per hour).
-- `pressure` (double): Pressure (HectoPascals).
-- `model` (varchar): Model of the device (either WXM WS1000 or WXM WS2000).
-- `name` (varchar): Name of the device.
-- `cell_id` (varchar): Cell ID of the device.
-- `lat` (double): Latitude of the cell.
-- `lon` (double): Longitude of the cell.
-
-Most of the columns above are included in the mean calculations, and there are three additional columns for aggregates:
-
-- `total_precipitation` (double): Total `precipitation_accumulated` (millimeters).
-- `num_devices` (int): Count of unique `device_id` values.
-- `cell_mode` (varchar): Most common `cell_id` value.
-
 ## Install
 
 To set things up (for local development), you'll need to do the following:
@@ -88,7 +60,7 @@ Or, you can define a custom time range with `start` and `end` arguments (Unix ep
 make run start=1700438400000 end=1700783999000
 ```
 
-This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace stars on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
+This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace starts on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
 [20:26:55] INFO     Getting publications...done in 1.10s
@@ -119,9 +91,10 @@ The following flags are available for the `main.py` script:
 The following defines all commands available in the Makefile:
 
 - `make install`: Install dependencies with `pip`, upgrading pip first.
-- `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write to metric summary files.
+- `make basin`: Install the Basin CLI from the latest release.
+- `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write metrics to summary files.
 - `make venv`: Create a virtual environment (only for local development).
-- `make freeze`: Freeze dependencies (only needed if you make changes to the deps during local development).
+- `make freeze`: Freeze dependencies (only for local development if you make changes to the deps).
 
 ## Contributing
 

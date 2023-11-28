@@ -1,32 +1,36 @@
 """Set up a dataframe for remote files, execute queries, and write to CSV and markdown."""
 
-import contextlib
-import io
 import os
-from typing import NamedTuple
+import textwrap
 
-import polars as pl
+from polars import concat, DataFrame, LazyFrame, Series
 
 from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
 from query import (
-    create_dataframe,
+    create_lazyframe,
     query_average_all,
     query_agg_precipitation_acc,
     query_mode_cell_id,
     query_num_unique_devices,
     query_timestamp_range,
 )
-from utils import err, get_current_date, format_unix_ms, wrap_task
+from utils import (
+    err,
+    format_df_to_markdown,
+    format_unix_ms,
+    get_current_date,
+    wrap_task,
+)
 
 
-def prepare_data() -> pl.DataFrame:
+def prepare_data() -> LazyFrame:
     """
     Prepare dataframe querying by first getting Basin for publications, deals,
     and remote parquet files, returning a dataframe of the IPFS data.
 
     Returns
     -------
-        pl.DataFrame: The dataframe of IPFS data.
+        LazyFrame: The LazyFrame of IPFS data.
 
     Raises
     ------
@@ -47,20 +51,20 @@ def prepare_data() -> pl.DataFrame:
     )
     urls = wrap_task(lambda: get_basin_urls(deals), "Forming remote URLs for deals...")
     # Create a dataframe from the remote parquet files at the IPFS URLs
-    df = wrap_task(
-        lambda: create_dataframe(urls), "Creating dataframe from remote files..."
+    lf = wrap_task(
+        lambda: create_lazyframe(urls), "Creating dataframe from remote files..."
     )
 
-    return df
+    return lf
 
 
-def execute(df: pl.DataFrame, start: int | None, end: int | None) -> None:
+def execute(lf: LazyFrame, start: int | None, end: int | None) -> None:
     """
     Execute queries and write results to files.
 
     Parameters
     ----------
-        df (pl.DataFrame): The dataframe to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range (can be None).
         end (int): The end of the query time range (can be None).
 
@@ -73,36 +77,35 @@ def execute(df: pl.DataFrame, start: int | None, end: int | None) -> None:
         Exception: If there is an error executing the queries or writing the
             results.
     """
-    # Execute queries and get the results; set `start` and `end` if None
-    (exec_result, start, end) = wrap_task(
-        lambda: execute_queries(df, start, end), "Executing queries..."
+    # Execute queries and get the results as a DataFrame
+    # Also, set `start` and `end` if None
+    (exec_df, start, end) = wrap_task(
+        lambda: execute_queries(lf, start, end), "Executing queries..."
     )
     # Prepare the data and write to files
     wrap_task(
-        lambda: write_output(exec_result, start, end),
+        lambda: execute_file_writes(exec_df, start, end),
         "Writing results to files...",
     )
 
 
-# Execute all queries on the dataframe for a given time range
-def execute_queries(
-    df: pl.DataFrame, start: int | None, end: int | None
-) -> pl.DataFrame:
+# Execute all queries on the LazyFrame for a given time range
+def execute_queries(lf: LazyFrame, start: int | None, end: int | None) -> DataFrame:
     """
-    Execute all queries on the dataframe for a given time range. This will query
+    Execute all queries on the LazyFrame for a given time range. This will query
     for averages across all columns (except device_id, timestamp, model, name,
     cell_id and lat/long). Also, query total precipitation, number of unique
     devices, and number of unique models.
 
     Parameters
     ----------
-        df (pl.DataFrame): The dataframe to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range (can be None).
         end (int): The end of the query time range (can be None).
 
     Returns
     -------
-        pl.DataFrame: The dataframe of averages, total precipitation, number of
+        DataFrame: The DataFrame of averages, total precipitation, number of
             unique devices, and cell mode.
 
     Raises
@@ -110,38 +113,38 @@ def execute_queries(
         Exception: If there is an error executing the queries.
     """
     try:
-        averages = query_average_all(df, start, end)
-        total_precipitation = query_agg_precipitation_acc(df, start, end)
-        num_devices = query_num_unique_devices(df, start, end)
-        cell_mode = query_mode_cell_id(df, start, end)
+        averages = query_average_all(lf, start, end)
+        total_precipitation = query_agg_precipitation_acc(lf, start, end)
+        num_devices = query_num_unique_devices(lf, start, end)
+        cell_mode = query_mode_cell_id(lf, start, end)
         # When writing to files, if `start` or `end` are None, query the min/max
-        # timestamp values in the dataframe
+        # timestamp values in the LazyFrame
         if start is None or end is None:
-            min, max = query_timestamp_range(df)
+            min, max = query_timestamp_range(lf)
             start = min if start is None else start
             end = max if end is None else end
         # Add total precipitation, number of devices, and cell mode to the
         # dataframe of averages
-        exec_result = averages.with_columns(
+        exec_df = averages.with_columns(
             [
-                pl.Series("total_precipitation", [total_precipitation]),
-                pl.Series("num_devices", [num_devices]),
-                pl.Series("cell_mode", [cell_mode]),
+                Series("total_precipitation", [total_precipitation]),
+                Series("num_devices", [num_devices]),
+                Series("cell_mode", [cell_mode]),
             ]
         )
-        return exec_result, start, end
+        return exec_df, start, end
     except Exception as e:
         err("Error in execute_queries", e)
 
 
-def write_output(df: pl.DataFrame, start: int, end: int) -> None:
+def execute_file_writes(df: DataFrame, start: int, end: int) -> None:
     """
     Write the run's dataframe results to a csv file for history and markdown
     for current state.
 
     Parameters
     -------
-        df (pl.DataFrame): The run's dataframe results.
+        df (DataFrame): The run's DataFrame results.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
@@ -162,42 +165,42 @@ def write_output(df: pl.DataFrame, start: int, end: int) -> None:
         err("Error in write_results", e)
 
 
-def prepare_output(df: pl.DataFrame, start: int, end: int) -> pl.DataFrame:
+def prepare_output(df: DataFrame, start: int, end: int) -> DataFrame:
     """
-    Prepare the dataframe with the run date and start/end query time range; used
+    Prepare the DataFrame with the run date and start/end query time range; used
     when writing to files.
 
     Parameters
     ----------
-        df (pl.DataFrame): The run's full dataframe results.
+        df (DataFrame): The run's full DataFrame results.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
     Returns
     -------
-        pl.DataFrame: The full dataframe with run info.
+        LazyFrame: The full dataframe with run info.
     """
     current_datetime = get_current_date()
     # Include run data qnd query ranges
-    run_info = pl.DataFrame(
+    run_info = DataFrame(
         [
-            pl.Series("job_date", [current_datetime]),
-            pl.Series("range_start", [start]),
-            pl.Series("range_end", [end]),
+            Series("job_date", [current_datetime]),
+            Series("range_start", [start]),
+            Series("range_end", [end]),
         ]
     )
-    df_with_run_info = pl.concat([run_info, df], how="horizontal")
+    df_with_run_info = concat([run_info, df], how="horizontal")
 
     return df_with_run_info
 
 
-def write_history_csv(df: pl.DataFrame, cwd: str) -> None:
+def write_history_csv(df: DataFrame, cwd: str) -> None:
     """
-    Append the run's dataframe results to a csv file.
+    Append the run's DataFrame results to a csv file.
 
     Parameters
     ----------
-        df (pl.DataFrame): The run's dataframe results.
+        df (DataFrame): The run's DataFrame results.
         cwd (str): The current working directory.
 
     Returns
@@ -223,13 +226,13 @@ def write_history_csv(df: pl.DataFrame, cwd: str) -> None:
         raise
 
 
-def write_markdown(df: pl.DataFrame, cwd: str) -> None:
+def write_markdown(df: DataFrame, cwd: str) -> None:
     """
-    Overwrite the run's dataframe results to a markdown file.
+    Overwrite the run's DataFrame results to a markdown file.
 
     Parameters
     ----------
-        df (pl.DataFrame): The run's dataframe results.
+        df (DataFrame): The run's DataFrame results.
         cwd (str): The current working directory.
 
     Returns
@@ -243,27 +246,12 @@ def write_markdown(df: pl.DataFrame, cwd: str) -> None:
     try:
         markdown_file = os.path.join(cwd, "Data.md")
         # Get job date and the start/end of the query range; needed before we
-        # make formatting changes to the dataframe
+        # get the markdown table variation of the DataFrame
         job_date = df["job_date"][0]
         range_start = df["range_start"][0]
         range_end = df["range_end"][0]
-
-        # Capture stdout, which prints a markdown table of the dataframe
-        output = io.StringIO()
-        with contextlib.redirect_stdout(output):
-            with pl.Config(
-                tbl_formatting="ASCII_MARKDOWN",
-                tbl_hide_column_data_types=True,
-                tbl_hide_dataframe_shape=True,
-                set_tbl_width_chars=5000,  # Prevent line wrapping
-                float_precision=3,  # Show 3 decimal points
-                set_fmt_float="full",  # Show full float precision
-                set_tbl_cols=-1,  # Show all columns
-            ):
-                # Replace underscores with spaces and capitalize column names
-                df.columns = [col.replace("_", " ").capitalize() for col in df.columns]
-                print(df)
-        markdown_table = output.getvalue()
+        # Get the DataFrame as markdown tables
+        markdown_tables = format_df_to_markdown(df)
 
         # Write the markdown table to the file with metadata
         with open(markdown_file, "w") as md_file:
@@ -271,11 +259,44 @@ def write_markdown(df: pl.DataFrame, cwd: str) -> None:
             start_formatted = format_unix_ms(range_start)
             end_formatted = format_unix_ms(range_end)
             # Write to the file
-            md_file.write(f"## Data\n\n")
+            md_file.write(f"# Data\n\n")
             md_file.write(
-                f"Generated on _{job_date}_ for data in range _{start_formatted}_ to _{end_formatted}_\n\n"
+                f"_Generated on **{job_date}** for data in range **{start_formatted}** to **{end_formatted}**._\n"
             )
-            md_file.write(markdown_table)
+            md_content = textwrap.dedent(
+                """
+                The schema for the raw data is as follows:
+
+                - `device_id` (varchar): Unique identifier for the device.
+                - `timestamp` (bigint): Timestamp (unix milliseconds).
+                - `temperature` (double): Temperature (Celsius).
+                - `humidity` (double): Relative humidity reading (%).
+                - `precipitation_accumulated` (double): Total precipitation (millimeters).
+                - `wind_speed` (double): Wind speed (meters per second).
+                - `wind_gust` (double): Wind gust (meters per second).
+                - `wind_direction` (double): Wind direction (degrees).
+                - `illuminance` (double): Illuminance (lux).
+                - `solar_irradiance` (double): Solar irradiance (watts per square meter).
+                - `fo_uv` (double): UV-related index value.
+                - `uv_index` (double): UV index.
+                - `precipitation_rate` (double): Precipitation rate (millimeters per hour).
+                - `pressure` (double): Pressure (HectoPascals).
+                - `model` (varchar): Model of the device (either WXM WS1000 or WXM WS2000).
+                - `name` (varchar): Name of the device.
+                - `cell_id` (varchar): Cell ID of the device.
+                - `lat` (double): Latitude of the cell.
+                - `lon` (double): Longitude of the cell.
+
+                Most of the columns above are included in the mean calculations, and there are three additional columns for aggregates:
+
+                - `total_precipitation` (double): Total `precipitation_accumulated` (millimeters).
+                - `num_devices` (int): Count of unique `device_id` values.
+                - `cell_mode` (varchar): Most common `cell_id` value.\n
+                """
+            )
+            md_file.write(md_content)
+            md_file.write(f"## Averages & cumulative metrics\n\n")
+            md_file.write(markdown_tables)
     except Exception as e:
         err("Error in write_markdown", e)
         raise

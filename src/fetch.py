@@ -156,9 +156,9 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
     ----------
         deals (list[object]): The list of deals.
         max_retries (int): he maximum number of times to retry a failed
-        request. Defaults to 10.
+            request. Defaults to 10.
         retry_delay (int): he number of seconds to wait between retries.
-        Defaults to 2.
+            Defaults to 2.
 
     Returns
     -------
@@ -188,8 +188,7 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                 if response.status_code == 200:
                     data = response.json()
                     file_name = data["Objects"][0]["Links"][0]["Name"]
-                    # Unsafely hardcode pinata key to make it public (free plan)
-                    # to make it easily accessible to anyone; consider secrets
+                    # Use either public w3s gateway or custom Pinata gateway
                     get_url = format_url(cid, pub_path, file_name)
                     urls.append(get_url)
                     break  # Break out of the retry loop on success

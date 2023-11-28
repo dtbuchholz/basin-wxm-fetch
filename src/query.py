@@ -1,6 +1,6 @@
 """Query wxm data at remote IPFS parquet files using polars."""
 
-import polars as pl
+from polars import col, scan_parquet, DataFrame, LazyFrame
 from polars.exceptions import ComputeError
 
 from utils import err, log_warn
@@ -32,7 +32,7 @@ lon (double)
 """
 
 
-def create_dataframe(remote_files: list[str], max_retries: int = 3) -> pl.DataFrame:
+def create_lazyframe(remote_files: list[str], max_retries: int = 3) -> LazyFrame:
     """
     Create a dataframe from remote parquet files.
 
@@ -43,7 +43,7 @@ def create_dataframe(remote_files: list[str], max_retries: int = 3) -> pl.DataFr
 
     Returns
     -------
-        pl.DataFrame: A Polars DataFrame from the remote parquet files.
+        LazyFrame: A Polars LazyFrame from the remote parquet files.
 
     Raises
     ------
@@ -56,9 +56,11 @@ def create_dataframe(remote_files: list[str], max_retries: int = 3) -> pl.DataFr
     attempt = 0
     while attempt < max_retries:
         try:
-            lazy = pl.scan_parquet(source=remote_files, cache=True, retries=3)
-            df = lazy.collect(streaming=True)
-            return df
+            # Use a LazyFrame for *significantly* faster performance & lower
+            # memory usage than collecting into a DataFrame
+            lf = scan_parquet(source=remote_files, cache=True, retries=3)
+
+            return lf
         except ComputeError as e:
             error_message = str(e)
             if "operation timed out" in error_message:
@@ -92,13 +94,13 @@ def create_dataframe(remote_files: list[str], max_retries: int = 3) -> pl.DataFr
     )
 
 
-def query_timestamp_range(df: pl.DataFrame) -> (int, int):
+def query_timestamp_range(lf: LazyFrame) -> (int, int):
     """
     Returns the min and max timestamp values from the provided DataFrame.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
 
     Returns
     -------
@@ -108,14 +110,14 @@ def query_timestamp_range(df: pl.DataFrame) -> (int, int):
     ------
         Exception: If there is an error querying the timestamp range.
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
-            min_max_value = df.select(
+            min_max_value = lf.select(
                 [
-                    pl.col("timestamp").min().alias("min_timestamp"),
-                    pl.col("timestamp").max().alias("max_timestamp"),
+                    col("timestamp").min().alias("min_timestamp"),
+                    col("timestamp").max().alias("max_timestamp"),
                 ]
-            )
+            ).collect()
             result = min_max_value
             # Extract the min and max values
             min_timestamp = result[0, "min_timestamp"]
@@ -125,31 +127,29 @@ def query_timestamp_range(df: pl.DataFrame) -> (int, int):
         except Exception as e:
             err("Error in query_timestamp_range", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
 
 
-def query_average_all(
-    df: pl.DataFrame, start: int | None, end: int | None
-) -> pl.DataFrame:
+def query_average_all(lf: LazyFrame, start: int | None, end: int | None) -> DataFrame:
     """
     Returns the average values for all columns in the provided DataFrame. This
     excludes device_id, timestamp, model, name, cell_id, lat, and lon.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
     Returns
     -------
-        pl.DataFrame: A DataFrame containing the averages for all columns.
+        DataFrame: A LazyFrame containing the averages for all columns.
 
     Raises
     ------
         Exception: If there is an error querying the averages.
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
             # List of columns to calculate the average
             columns = [
@@ -167,33 +167,39 @@ def query_average_all(
                 "pressure",
             ]
             # Prepare selection expressions
-            selection = [(pl.col(col).mean().alias(col)) for col in columns]
+            selection = [(col(column).mean().alias(column)) for column in columns]
             # Apply the selection
             if start is None or end is None:
-                averages = df.select(selection)
+                averages = lf.select(selection).collect()
+            elif start is not None and end is None:
+                averages = (
+                    lf.filter((col("timestamp") > start)).select(selection).collect()
+                )
             elif start is None and end is not None:
-                averages = df.filter((pl.col("timestamp") > start)).select(selection)
+                averages = (
+                    lf.filter((col("timestamp") < end)).select(selection).collect()
+                )
             else:
-                averages = df.filter(
-                    (pl.col("timestamp") > start) & (pl.col("timestamp") < end)
-                ).select(selection)
+                averages = (
+                    lf.filter((col("timestamp") > start) & (col("timestamp") < end))
+                    .select(selection)
+                    .collect()
+                )
 
             return averages
         except Exception as e:
             err("Error in query_average_all", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
 
 
-def query_num_unique_devices(
-    df: pl.DataFrame, start: int | None, end: int | None
-) -> int:
+def query_num_unique_devices(lf: LazyFrame, start: int | None, end: int | None) -> int:
     """
     Returns the number of unique device_id entries in the provided DataFrame.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
@@ -201,34 +207,40 @@ def query_num_unique_devices(
     -------
         int: The number of unique device_id entries.
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
-            selection = pl.col("device_id").unique().alias("num_devices")
+            selection = col("device_id").unique().alias("num_devices")
             if start is None or end is None:
-                unique_devices = df.select(selection)
+                unique_devices = lf.select(selection).collect()
+            elif start is not None and end is None:
+                unique_devices = (
+                    lf.filter((col("timestamp") > start)).select(selection).collect()
+                )
             elif start is None and end is not None:
-                unique_devices = df.filter((pl.col("timestamp") > start)).select(
-                    selection
+                unique_devices = (
+                    lf.filter((col("timestamp") < end)).select(selection).collect()
                 )
             else:
-                unique_devices = df.filter(
-                    (pl.col("timestamp") > start) & (pl.col("timestamp") < end)
-                ).select(selection)
+                unique_devices = (
+                    lf.filter((col("timestamp") > start) & (col("timestamp") < end))
+                    .select(selection)
+                    .collect()
+                )
 
             return len(unique_devices)
         except Exception as e:
             err("Error in query_num_unique_devices", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
 
 
-def query_mode_cell_id(df: pl.DataFrame, start: int | None, end: int | None) -> int:
+def query_mode_cell_id(lf: LazyFrame, start: int | None, end: int | None) -> int:
     """
     Returns the most common cell_id value in the provided DataFrame.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
@@ -240,35 +252,43 @@ def query_mode_cell_id(df: pl.DataFrame, start: int | None, end: int | None) -> 
     ------
         Exception: If there is an error querying the mode cell_id.
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
-            selection = pl.col("cell_id").drop_nulls().mode().first().alias("cell_mode")
+            selection = col("cell_id").drop_nulls().mode().first().alias("cell_mode")
 
             if start is None or end is None:
-                cell_mode = df.select(selection)
+                cell_mode = lf.select(selection).collect()
+            elif start is not None and end is None:
+                cell_mode = (
+                    lf.filter((col("timestamp") > start)).select(selection).collect()
+                )
             elif start is None and end is not None:
-                cell_mode = df.filter((pl.col("timestamp") > start)).select(selection)
+                cell_mode = (
+                    lf.filter((col("timestamp") < end)).select(selection).collect()
+                )
             else:
-                cell_mode = df.filter(
-                    (pl.col("timestamp") > start) & (pl.col("timestamp") < end)
-                ).select(selection)
+                cell_mode = (
+                    lf.filter((col("timestamp") > start) & (col("timestamp") < end))
+                    .select(selection)
+                    .collect()
+                )
 
             return cell_mode["cell_mode"][0]
         except Exception as e:
             err("Error in query_mode_cell_id", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
 
 
 def query_agg_precipitation_acc(
-    df: pl.DataFrame, start: int | None, end: int | None
+    lf: LazyFrame, start: int | None, end: int | None
 ) -> float:
     """
     Returns the total precipitation value for the provided DataFrame.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
@@ -280,52 +300,58 @@ def query_agg_precipitation_acc(
     ------
         Exception: If there is an error querying the total precipitation
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
             selection = (
-                pl.col("precipitation_accumulated").sum().alias("total_precipitation")
+                col("precipitation_accumulated").sum().alias("total_precipitation")
             )
 
             if start is None or end is None:
-                total_precipitation = df.select(selection)
+                total_precipitation = lf.select(selection).collect()
+            elif start is not None and end is None:
+                total_precipitation = (
+                    lf.filter((col("timestamp") > start)).select(selection).collect()
+                )
             elif start is None and end is not None:
-                total_precipitation = df.filter((pl.col("timestamp") > start)).select(
-                    selection
+                total_precipitation = (
+                    lf.filter((col("timestamp") < end)).select(selection).collect()
                 )
             else:
-                total_precipitation = df.filter(
-                    (pl.col("timestamp") > start) & (pl.col("timestamp") < end)
-                ).select(selection)
+                total_precipitation = (
+                    lf.filter((col("timestamp") > start) & (col("timestamp") < end))
+                    .select(selection)
+                    .collect()
+                )
 
             return total_precipitation["total_precipitation"][0]
         except Exception as e:
             err("Error in query_agg_precipitation_acc", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
 
 
-def query_all_limit_n(df: pl.DataFrame, n: int) -> pl.DataFrame:
+def query_all_limit_n(lf: LazyFrame, n: int) -> DataFrame:
     """
     Returns the first 'n' rows of the provided DataFrame.
 
     Parameters
     ----------
-        df (pl.DataFrame): The DataFrame to query.
+        lf (LazyFrame): The LazyFrame to query.
         n (int): The number of rows to return.
 
     Returns
     -------
-        pl.DataFrame: A DataFrame containing the first 'n' rows of 'df'.
+        LazyFrame: A DataFrame containing the first 'n' rows of 'df'.
 
     Raises
     ------
         Exception: If there is an error querying the first 'n' rows.
     """
-    if df is not None and not df.is_empty():
+    if lf is not None:
         try:
-            limit = df.head(n)
+            limit = lf.head(n).collect()
             return limit
         except Exception as e:
             err("Error in query_all_limit_n", e)
     else:
-        err("DataFrame is None or empty", ValueError("Invalid input"), ValueError)
+        err("No LazyFrame argument", ValueError("Invalid input"), ValueError)
