@@ -9,7 +9,7 @@ from math import ceil
 from polars import Config, DataFrame, LazyFrame, Series, concat
 
 from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
-from query import create_lazyframe, execute_queries
+from query import create_duckdb_connection, execute_queries
 from utils import err, format_unix_ms, get_current_date, is_pinata, log_info, wrap_task
 
 
@@ -49,7 +49,8 @@ def prepare_data() -> LazyFrame:
         log_info("Using public Web3 Storage gateway")
     # Create a LazyFrame from the remote parquet files at the IPFS URLs
     lf = wrap_task(
-        lambda: create_lazyframe(urls), "Preparing LazyFrame from remote files..."
+        lambda: create_duckdb_connection(urls),
+        "Preparing LazyFrame from remote files...",
     )
 
     return lf
