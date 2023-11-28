@@ -1,13 +1,14 @@
 """Get Basin wxm publications & files to set up remote URLs for further queries."""
 
-import json
-import subprocess
-import time
+from json import JSONDecodeError, loads
+from subprocess import CalledProcessError, run
+from time import sleep
 
-import requests
+from requests import get
+from requests.exceptions import HTTPError
 
 from config import pinata_gateway_token, pinata_subdomain
-from utils import err, is_pinata, log_info, log_warn
+from utils import err, log_warn
 
 
 def get_basin_pubs(address: str) -> list[str]:
@@ -29,7 +30,7 @@ def get_basin_pubs(address: str) -> list[str]:
     """
     try:
         command = ["basin", "publication", "list", "--address", address]
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = run(command, capture_output=True, text=True, check=True)
         out = result.stdout
         if out:
             pubs = out.strip().split("\n")
@@ -41,11 +42,11 @@ def get_basin_pubs(address: str) -> list[str]:
                 ValueError,
             )
 
-    except subprocess.CalledProcessError as e:
+    except CalledProcessError as e:
         error_msg = f"Error getting basin publications for address {address}"
         err(error_msg, e, type(e))
 
-    except json.JSONDecodeError as e:
+    except JSONDecodeError as e:
         error_msg = f"JSON decoding error for address {address}"
         err(error_msg, e, type(e))
 
@@ -82,10 +83,10 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
                 "--format",
                 "json",
             ]
-            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            result = run(command, capture_output=True, text=True, check=True)
             out = result.stdout
             if out:
-                pub_deals = json.loads(out)
+                pub_deals = loads(out)
                 for deal in pub_deals:
                     # Add `namespace.publication` as `publication` to deal
                     # object; helps with forming URL path when requesting
@@ -96,11 +97,11 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
                 # made yet, so it's ideal to keep things going.
                 log_warn(f"No deals found for publication {pub}")
 
-        except subprocess.CalledProcessError as e:
+        except CalledProcessError as e:
             error_msg = f"Error finding basin deal for publication {pub}"
             err(error_msg, e, type(e))
 
-        except json.JSONDecodeError as e:
+        except JSONDecodeError as e:
             error_msg = f"JSON decoding error for publication {pub}"
             err(error_msg, e, type(e))
 
@@ -112,7 +113,6 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             ValueError("Invalid input"),
             ValueError,
         )
-    log_info(f"Number of deals found: {num_deals}")
 
     return deals
 
@@ -185,7 +185,7 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
         attempts = 0
         while attempts < max_retries:
             try:
-                response = requests.get(list_url)
+                response = get(list_url)
 
                 # Check if the request was successful
                 if response.status_code == 200:
@@ -197,16 +197,16 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
                     break  # Break out of the retry loop on success
                 else:
                     error_msg = "HTTP request error"
-                    err(error_msg, response.status_code, requests.exceptions.HTTPError)
+                    err(error_msg, response.status_code, HTTPError)
 
-            except requests.exceptions.HTTPError as e:
+            except HTTPError as e:
                 # Sometimes, 500 errors will occur and requires retry logic
                 if response.status_code == 500:
                     attempts += 1
                     log_warn(
                         f"Error forming request url for {cid}. Retrying (attempt {attempts} of {max_retries})...",
                     )
-                    time.sleep(retry_delay)
+                    sleep(retry_delay)
                 else:
                     err("HTTP error occurred", e, type(e))
             except Exception as e:
@@ -214,11 +214,5 @@ def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[st
         if attempts >= max_retries:
             error_msg = f"Failed to retrieve urls after {max_retries} attempts."
             err(error_msg, e)
-
-    # Provide context on the gateway being used
-    if is_pinata(urls[0]):
-        log_info("Using custom Pinata gateway")
-    else:
-        log_info("Using public Web3 Storage gateway")
 
     return urls

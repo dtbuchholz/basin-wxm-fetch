@@ -63,15 +63,17 @@ make run start=1700438400000 end=1700783999000
 This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace starts on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[23:05:49] INFO     Getting publications...done in 1.29s
-[23:05:51] INFO     Number of deals found: 5
-           INFO     Getting deals for publications...done in 2.42s
-[23:05:52] INFO     Using public Web3 Storage gateway
-           INFO     Forming remote URLs for deals...done in 0.58s
-[23:05:56] INFO     Preparing LazyFrame from remote files...done in 4.74s
-[23:08:15] INFO     Executing queries...done in 139.22s
+[00:12:47] INFO     Getting publications...done in 1.21s
+[00:12:50] INFO     Getting deals for publications...done in 2.67s
+           INFO     Number of deals found: 5
+[00:12:51] INFO     Forming remote URLs for deals...done in 1.11s
+           INFO     Using public Web3 Storage gateway
+[00:12:57] INFO     Preparing LazyFrame from remote files...done in 5.93s
+[00:15:14] INFO     Executing queries...done in 136.41s
 ⠙ Writing results to files...
 ```
+
+> Note: The program will load all files into memory, so it's best to run this on a machine with a decent amount of RAM. For example, five wxm parquet files will total to ~1.2GB in terms of raw file size, and preparing these in polars DataFrames for queries will use up to ~4.5GB of RAM in total.
 
 ### Environment variables
 

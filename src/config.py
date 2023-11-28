@@ -1,14 +1,14 @@
 """Configs & command setup for query start time, end time, and verbose logging."""
 
-import argparse
-import os
+from argparse import ArgumentParser
+from os import getenv
 
 from dotenv import find_dotenv, load_dotenv
 
 # Optionally use a custom Pinata IPFS gateway
 load_dotenv(find_dotenv())
-pinata_subdomain = os.getenv("PINATA_SUBDOMAIN")
-pinata_gateway_token = os.getenv("PINATA_GATEWAY_TOKEN")
+pinata_subdomain = getenv("PINATA_SUBDOMAIN")
+pinata_gateway_token = getenv("PINATA_GATEWAY_TOKEN")
 
 # Define global setting for verbose traceback logging
 log_traceback = True
@@ -27,9 +27,7 @@ def command_setup() -> (int | None, int | None):
     """
     global log_traceback
 
-    parser = argparse.ArgumentParser(
-        description="Fetch Basin wxm data and run queries."
-    )
+    parser = ArgumentParser(description="Fetch Basin wxm data and run queries.")
     parser.add_argument(
         "--start",
         type=int,

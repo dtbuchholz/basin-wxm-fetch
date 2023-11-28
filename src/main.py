@@ -1,4 +1,4 @@
-import sys
+from sys import exit
 
 from config import command_setup
 from run import prepare_data, run
@@ -25,7 +25,7 @@ def main():
 
     except RuntimeError as e:
         log_err(f"Error occurred during run: {e}")
-        sys.exit(1)
+        exit(1)
 
 
 if __name__ == "__main__":
