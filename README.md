@@ -46,7 +46,7 @@ go install github.com/tablelandnetwork/basin-cli/cmd/basin@latest
 
 ## Usage
 
-Running `src/main.py` will fetch remote files from Tableland Basin, load them into a `polars` dataframe, and then run queries on the data.
+Running `src/main.py` will fetch remote files from Tableland Basin, load them into a `polars` LazyFrame, and then run queries on the data by collecting them into a DataFrame.
 
 To use default time ranges (the full dataset), run:
 
@@ -63,12 +63,13 @@ make run start=1700438400000 end=1700783999000
 This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace starts on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[20:26:55] INFO     Getting publications...done in 1.10s
-[20:26:57] INFO     Getting deals for publications...done in 2.12s
-[20:26:58] INFO     Using public Web3 Storage gateway
-           INFO     Forming remote URLs for deals...done in 0.56s
-[20:28:02] INFO     Creating dataframe from remote files...done in 63.59s
-[20:28:37] INFO     Executing queries...done in 35.65s
+[23:05:49] INFO     Getting publications...done in 1.29s
+[23:05:51] INFO     Number of deals found: 5
+           INFO     Getting deals for publications...done in 2.42s
+[23:05:52] INFO     Using public Web3 Storage gateway
+           INFO     Forming remote URLs for deals...done in 0.58s
+[23:05:56] INFO     Preparing LazyFrame from remote files...done in 4.74s
+[23:08:15] INFO     Executing queries...done in 139.22s
 ⠙ Writing results to files...
 ```
 

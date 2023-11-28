@@ -1,9 +1,9 @@
 """Configs & command setup for query start time, end time, and verbose logging."""
 
-import os
 import argparse
+import os
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 # Optionally use a custom Pinata IPFS gateway
 load_dotenv(find_dotenv())

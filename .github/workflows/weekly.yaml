@@ -47,6 +47,6 @@ jobs:
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "chore: daily stats update"
+          commit_message: "chore: weekly stats update"
           file_pattern: "Data.md history.csv"
           commit_user_name: "basin[bot]"

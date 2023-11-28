@@ -1,7 +1,7 @@
 import sys
 
 from config import command_setup
-from run import execute, prepare_data
+from run import prepare_data, run
 from utils import log_err
 
 
@@ -21,7 +21,7 @@ def main():
 
     try:
         lf = prepare_data()  # Fetch remote files & create polars LazyFrame
-        execute(lf, start, end)  # Execute queries and write results to files
+        run(lf, start, end)  # Execute queries and write results to files
 
     except RuntimeError as e:
         log_err(f"Error occurred during run: {e}")

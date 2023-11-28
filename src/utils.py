@@ -1,8 +1,8 @@
-"""Utilities for formatting and logging."""
+"""Utilities including formatting and logging."""
 
+import contextlib
 import io
 import logging
-import contextlib
 import time
 import traceback
 from datetime import datetime
@@ -74,7 +74,6 @@ def err(desc: str, e: Exception, e_type: type = RuntimeError) -> None:
     """Logs an error with a description and raises an exception."""
     if log_traceback is True:
         log.error(traceback.format_exc())
-    log.error(f"{desc}: {e}")
     raise e_type(f"{desc}: {e}")
 
 

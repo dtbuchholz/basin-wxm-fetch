@@ -3,10 +3,11 @@
 import json
 import subprocess
 import time
+
 import requests
 
+from config import pinata_gateway_token, pinata_subdomain
 from utils import err, is_pinata, log_info, log_warn
-from config import pinata_subdomain, pinata_gateway_token
 
 
 def get_basin_pubs(address: str) -> list[str]:
@@ -104,12 +105,14 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             err(error_msg, e, type(e))
 
     # Throw if no deals exist for any publications
-    if len(deals) == 0:
+    num_deals = len(deals)
+    if num_deals == 0:
         err(
             "No deals found for any publications",
             ValueError("Invalid input"),
             ValueError,
         )
+    log_info(f"Number of deals found: {num_deals}")
 
     return deals
 

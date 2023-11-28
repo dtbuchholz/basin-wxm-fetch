@@ -3,17 +3,10 @@
 import os
 import textwrap
 
-from polars import concat, DataFrame, LazyFrame, Series
+from polars import DataFrame, LazyFrame, Series, concat
 
 from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
-from query import (
-    create_lazyframe,
-    query_average_all,
-    query_agg_precipitation_acc,
-    query_mode_cell_id,
-    query_num_unique_devices,
-    query_timestamp_range,
-)
+from query import execute_queries, create_lazyframe
 from utils import (
     err,
     format_df_to_markdown,
@@ -50,15 +43,15 @@ def prepare_data() -> LazyFrame:
         lambda: get_basin_deals(active_pubs), "Getting deals for publications..."
     )
     urls = wrap_task(lambda: get_basin_urls(deals), "Forming remote URLs for deals...")
-    # Create a dataframe from the remote parquet files at the IPFS URLs
+    # Create a LazyFrame from the remote parquet files at the IPFS URLs
     lf = wrap_task(
-        lambda: create_lazyframe(urls), "Creating dataframe from remote files..."
+        lambda: create_lazyframe(urls), "Preparing LazyFrame from remote files..."
     )
 
     return lf
 
 
-def execute(lf: LazyFrame, start: int | None, end: int | None) -> None:
+def run(lf: LazyFrame, start: int | None, end: int | None) -> None:
     """
     Execute queries and write results to files.
 
@@ -84,60 +77,12 @@ def execute(lf: LazyFrame, start: int | None, end: int | None) -> None:
     )
     # Prepare the data and write to files
     wrap_task(
-        lambda: execute_file_writes(exec_df, start, end),
+        lambda: write_files(exec_df),
         "Writing results to files...",
     )
 
 
-# Execute all queries on the LazyFrame for a given time range
-def execute_queries(lf: LazyFrame, start: int | None, end: int | None) -> DataFrame:
-    """
-    Execute all queries on the LazyFrame for a given time range. This will query
-    for averages across all columns (except device_id, timestamp, model, name,
-    cell_id and lat/long). Also, query total precipitation, number of unique
-    devices, and number of unique models.
-
-    Parameters
-    ----------
-        lf (LazyFrame): The LazyFrame to query.
-        start (int): The start of the query time range (can be None).
-        end (int): The end of the query time range (can be None).
-
-    Returns
-    -------
-        DataFrame: The DataFrame of averages, total precipitation, number of
-            unique devices, and cell mode.
-
-    Raises
-    ------
-        Exception: If there is an error executing the queries.
-    """
-    try:
-        averages = query_average_all(lf, start, end)
-        total_precipitation = query_agg_precipitation_acc(lf, start, end)
-        num_devices = query_num_unique_devices(lf, start, end)
-        cell_mode = query_mode_cell_id(lf, start, end)
-        # When writing to files, if `start` or `end` are None, query the min/max
-        # timestamp values in the LazyFrame
-        if start is None or end is None:
-            min, max = query_timestamp_range(lf)
-            start = min if start is None else start
-            end = max if end is None else end
-        # Add total precipitation, number of devices, and cell mode to the
-        # dataframe of averages
-        exec_df = averages.with_columns(
-            [
-                Series("total_precipitation", [total_precipitation]),
-                Series("num_devices", [num_devices]),
-                Series("cell_mode", [cell_mode]),
-            ]
-        )
-        return exec_df, start, end
-    except Exception as e:
-        err("Error in execute_queries", e)
-
-
-def execute_file_writes(df: DataFrame, start: int, end: int) -> None:
+def write_files(df: DataFrame, start: int, end: int) -> None:
     """
     Write the run's dataframe results to a csv file for history and markdown
     for current state.
@@ -165,7 +110,7 @@ def execute_file_writes(df: DataFrame, start: int, end: int) -> None:
         err("Error in write_results", e)
 
 
-def prepare_output(df: DataFrame, start: int, end: int) -> DataFrame:
+def prepare_output(df: DataFrame) -> DataFrame:
     """
     Prepare the DataFrame with the run date and start/end query time range; used
     when writing to files.
@@ -185,8 +130,6 @@ def prepare_output(df: DataFrame, start: int, end: int) -> DataFrame:
     run_info = DataFrame(
         [
             Series("job_date", [current_datetime]),
-            Series("range_start", [start]),
-            Series("range_end", [end]),
         ]
     )
     df_with_run_info = concat([run_info, df], how="horizontal")
@@ -291,7 +234,12 @@ def write_markdown(df: DataFrame, cwd: str) -> None:
 
                 - `total_precipitation` (double): Total `precipitation_accumulated` (millimeters).
                 - `num_devices` (int): Count of unique `device_id` values.
-                - `cell_mode` (varchar): Most common `cell_id` value.\n
+                - `cell_mode` (varchar): Most common `cell_id` value.
+
+                And three additional columns for run metadata:
+
+                - `job_date` (varchar): Date the job was run.
+                - `range_start` (bigint): Start of the query range (unix milliseconds).\n
                 """
             )
             md_file.write(md_content)
