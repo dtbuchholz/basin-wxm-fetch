@@ -64,6 +64,7 @@ def prepare_data(root: Path) -> DuckDBPyConnection | None:
     cache_file = root / "cache.json"
     new_deals = check_deals_cache(deals, cache_file)
     # Exit early if no new deals exist
+    log_info(f"Number of new deals: {len(new_deals)}")
     if len(new_deals) == 0:
         log_info("No new deals found, exiting...")
         return None

@@ -172,7 +172,6 @@ def check_deals_cache(deals: list[object], cache_file: Path) -> list[object]:
         if Path.exists(cache_file):
             cached_deals = read_deals_cache(cache_file)
             diff = [item for item in deals if item not in cached_deals]
-            log_info(f"Number of new deals: {len(diff)}")
 
             return diff
         else:
