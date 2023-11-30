@@ -1,14 +1,6 @@
 """Configs & command setup for query start time, end time, and verbose logging."""
 
 from argparse import ArgumentParser
-from os import getenv
-
-from dotenv import find_dotenv, load_dotenv
-
-# Optionally use a custom Pinata IPFS gateway
-load_dotenv(find_dotenv())
-pinata_subdomain = getenv("PINATA_SUBDOMAIN")
-pinata_gateway_token = getenv("PINATA_GATEWAY_TOKEN")
 
 # Define global setting for verbose traceback logging
 log_traceback = True

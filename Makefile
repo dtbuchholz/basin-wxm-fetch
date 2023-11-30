@@ -12,6 +12,10 @@ freeze:
 basin:
 	go install github.com/tablelandnetwork/basin-cli/cmd/basin@latest
 
+# Install go-car CLI
+car:
+	go install github.com/ipld/go-car/cmd/car@latest
+
 # Install dependencies
 install:
 	pip install --upgrade pip

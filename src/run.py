@@ -1,26 +1,40 @@
-"""Set up a dataframe for remote files, execute queries, and write to CSV and markdown."""
+"""Set up an in-memory database for remote files, execute queries, and write to CSV and markdown."""
 
+import sys
 from contextlib import redirect_stdout
 from io import StringIO
-from os import getcwd, path
-from textwrap import dedent
 from math import ceil
+from pathlib import Path
+from textwrap import dedent
 
-from polars import Config, DataFrame, LazyFrame, Series, concat
+from duckdb import DuckDBPyConnection
+from polars import Config, DataFrame, Series, concat
 
-from fetch import get_basin_deals, get_basin_pubs, get_basin_urls
-from query import create_duckdb_connection, execute_queries
-from utils import err, format_unix_ms, get_current_date, is_pinata, log_info, wrap_task
+from fetch import (
+    check_deals_cache,
+    extract_deals,
+    get_basin_deals,
+    get_basin_pubs,
+    write_deals_cache,
+)
+from query import create_database, execute_queries
+from utils import err, format_unix_ms, get_current_date, log_info, wrap_task
 
 
-def prepare_data() -> LazyFrame:
+def prepare_data(root: Path) -> DuckDBPyConnection | None:
     """
-    Prepare dataframe querying by first getting Basin for publications, deals,
-    and remote parquet files, returning a dataframe of the IPFS data.
+    Prepare an in-memory database for querying by first getting Basin for
+    publications, deals, CAR files, and extracted parquet files.
+
+    Parameters
+    ----------
+        root (Path): The root directory of the project.
 
     Returns
     -------
-        LazyFrame: The LazyFrame of IPFS data.
+        DuckDBPyConnection | None: The in-memory database connection, or None if
+            there are no new deals to process.
+
 
     Raises
     ------
@@ -32,8 +46,11 @@ def prepare_data() -> LazyFrame:
         lambda: get_basin_pubs("0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5"),
         "Getting publications...",
     )
+
     # Filter for only `xm_data` namespace (get rid of testing-only data)
-    active_pubs = [item for item in pubs if item.startswith("xm_data")]
+    namespace = "xm_data"
+    active_pubs = [item for item in pubs if item.startswith(namespace)]
+
     # Get deals for each publication, also inserting the `namespace.publication`
     # into the returned objects (used in forming URL path for IPFS requests)
     deals = wrap_task(
@@ -41,28 +58,43 @@ def prepare_data() -> LazyFrame:
     )
     num_deals = len(deals)
     log_info(f"Number of deals found: {num_deals}")
-    # Form remote parquet files for each deal
-    urls = wrap_task(lambda: get_basin_urls(deals), "Forming remote URLs for deals...")
-    if is_pinata(urls[0]):
-        log_info("Using custom Pinata gateway")
-    else:
-        log_info("Using public Web3 Storage gateway")
-    # Create a LazyFrame from the remote parquet files at the IPFS URLs
-    lf = wrap_task(
-        lambda: create_duckdb_connection(urls),
-        "Preparing LazyFrame from remote files...",
+
+    # Check if there is a cache file; if so, read it and filter out deals that
+    # have already been downloaded
+    cache_file = root / "cache.json"
+    new_deals = check_deals_cache(deals, cache_file)
+    # Exit early if no new deals exist
+    if len(new_deals) == 0:
+        log_info("No new deals found, exiting...")
+        return None
+
+    # Write the updated deals to the cache file
+    write_deals_cache(deals, cache_file)
+
+    # Set up the directory for the extracted parquet files
+    data_dir = root / "inputs"
+    if not Path.exists(data_dir):
+        Path.mkdir(data_dir)
+    # Retrieve deals & extract the parquet files from each CAR file
+    wrap_task(
+        lambda: extract_deals(new_deals, data_dir), "Extracting data from deals..."
+    )
+    # Create a in-memory database from the parquet files
+    db = wrap_task(
+        lambda: create_database(data_dir),
+        "Creating database with parquet files...",
     )
 
-    return lf
+    return db
 
 
-def run(lf: LazyFrame, start: int | None, end: int | None) -> None:
+def run(db: DuckDBPyConnection, root: Path, start: int | None, end: int | None) -> None:
     """
     Execute queries and write results to files.
 
     Parameters
     ----------
-        lf (LazyFrame): The LazyFrame to query.
+        db (DuckDBPyConnection): The database to query.
         start (int): The start of the query time range (can be None).
         end (int): The end of the query time range (can be None).
 
@@ -75,24 +107,24 @@ def run(lf: LazyFrame, start: int | None, end: int | None) -> None:
         Exception: If there is an error executing the queries or writing the
             results.
     """
-    # Execute queries and get the results as a DataFrame
-    # Also, set `start` and `end` if None
-    exec_df = wrap_task(lambda: execute_queries(lf, start, end), "Executing queries...")
+    # Execute queries and get the results as a polars DataFrame
+    # Also, set `start` and `end` time dynamically, if None
+    df = wrap_task(lambda: execute_queries(db, start, end), "Executing queries...")
     # Prepare the data and write to files
     wrap_task(
-        lambda: write_files(exec_df),
+        lambda: write_files(df, root),
         "Writing results to files...",
     )
 
 
-def write_files(df: DataFrame) -> None:
+def write_files(df: DataFrame, root: Path) -> None:
     """
     Write the run's dataframe results to a csv file for history and markdown
     for current state.
 
     Parameters
     -------
-        df (DataFrame): The run's DataFrame results.
+        df (DataFrame): The run's polars DataFrame results.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
@@ -104,11 +136,10 @@ def write_files(df: DataFrame) -> None:
     ------
         Exception: If there is an error writing the results.
     """
-    cwd = getcwd()
     try:
         prepared = prepare_output(df)
-        write_history_csv(prepared, cwd)
-        write_markdown(prepared, cwd)
+        write_history_csv(prepared, root)
+        write_markdown(prepared, root)
     except Exception as e:
         err("Error in write_results", e)
 
@@ -120,13 +151,13 @@ def prepare_output(df: DataFrame) -> DataFrame:
 
     Parameters
     ----------
-        df (DataFrame): The run's full DataFrame results.
+        df (DataFrame): The run's polars DataFrame results.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
 
     Returns
     -------
-        LazyFrame: The full dataframe with run info.
+        DataFrame: The full polars DataFrame with run info.
     """
     current_datetime = get_current_date()
     # Include run data qnd query ranges
@@ -136,14 +167,14 @@ def prepare_output(df: DataFrame) -> DataFrame:
     return df_with_run_info
 
 
-def write_history_csv(df: DataFrame, cwd: str) -> None:
+def write_history_csv(df: DataFrame, root: Path) -> None:
     """
     Append the run's DataFrame results to a csv file.
 
     Parameters
     ----------
-        df (DataFrame): The run's DataFrame results.
-        cwd (str): The current working directory.
+        df (DataFrame): The run's polars DataFrame results.
+        root (Path): The root directory for the program.
 
     Returns
     -------
@@ -154,12 +185,12 @@ def write_history_csv(df: DataFrame, cwd: str) -> None:
         Exception: If there is an error writing the results.
     """
     try:
-        history_file = path.join(cwd, "history.csv")
+        history_file = Path(root) / "history.csv"
         # Check if the file exists—if so, append to it; otherwise, create it
-        if path.exists(history_file):
+        if Path.exists(history_file):
             # Open the file in append mode and write without header
-            with open(history_file, "a") as f:
-                df.write_csv(f, include_header=False)
+            with open(history_file, "a") as csv_file:
+                df.write_csv(csv_file, include_header=False)
         else:
             # If the file doesn't exist, create it and write with header
             df.write_csv(history_file)
@@ -168,14 +199,14 @@ def write_history_csv(df: DataFrame, cwd: str) -> None:
         raise
 
 
-def write_markdown(df: DataFrame, cwd: str) -> None:
+def write_markdown(df: DataFrame, root: Path) -> None:
     """
     Overwrite the run's DataFrame results to a markdown file.
 
     Parameters
     ----------
-        df (DataFrame): The run's DataFrame results.
-        cwd (str): The current working directory.
+        df (DataFrame): The run's polars DataFrame results.
+        root (Path): The root directory for the program.
 
     Returns
     -------
@@ -186,7 +217,7 @@ def write_markdown(df: DataFrame, cwd: str) -> None:
         Exception: If there is an error writing the results.
     """
     try:
-        markdown_file = path.join(cwd, "Data.md")
+        markdown_file = Path(root) / "Data.md"
         # Get job date and the start/end of the query range; needed before we
         # get the markdown table variation of the DataFrame
         job_date = df["job_date"][0]

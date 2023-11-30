@@ -10,7 +10,6 @@
   - [Data](#data)
 - [Install](#install)
 - [Usage](#usage)
-  - [Environment variables](#environment-variables)
   - [Flags](#flags)
   - [Makefile Reference](#makefile-reference)
 - [Contributing](#contributing)
@@ -18,11 +17,11 @@
 
 ## Background
 
-This project runs a simple analysis on [WeatherXM](https://weatherxm.com/) data that's pushed to Tableland [Basin](https://github.com/tablelandnetwork/basin-cli) (replicated to Filecoin). It fetches the data remotely and queries it with [polars](https://www.pola.rs/).
+This project runs a simple analysis on [WeatherXM](https://weatherxm.com/) data that's pushed to Tableland [Basin](https://github.com/tablelandnetwork/basin-cli) (replicated to Filecoin). It fetches remote data and queries it with [DuckDB](https://duckdb.org).
 
 ### Data
 
-The script fetches data from the WeatherXM's `xm_data` Basin namespace (created by `0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5`) on a cron schedule. For every run, it will query data and write the results to:
+The script fetches data from the WeatherXM's `xm_data` Basin namespace (created by `0xfc7C55c4A9e30A4e23f0e48bd5C1e4a865dA06C5`) on a cron schedule with GitHub Actions. For every run, it will query data and write the results to:
 
 - [Data](./Data.md): Summary metrics for the run, including averages across all columns.
 - [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
@@ -36,17 +35,28 @@ To set things up (for local development), you'll need to do the following:
 3. Upgrade pip and instal: `make install`
 4. Install dependencies: `make install`
 
-You want to make sure you activate the environment in the second step before installing. Note the core dependencies are `requests` and `polars`, and polars needs `aiohttp`, and `fsspec` to work with remote files. The [`rich`](https://github.com/Textualize/rich) library is also used for logging, and `python-dotenv` loads environment variables.
+You want to make sure you activate the environment in the second step before installing. Note the core dependencies installed are:
 
-Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) installed to do this, and then run:
+- [`duckdb`](https://duckdb.org/docs/api/python/overview): Creates an in-memory SQL database for querying parquet files extracted from Basin.
+- [`polars`](https://pola.rs/): Used for DataFrame operations as part of post-query logic.
+- [`pyarrow`](https://pypi.org/project/pyarrow/): Required for DuckDB to work with parquet files.
+- [`rich`](https://github.com/Textualize/rich): Used for logging purposes.
+
+Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) 1.21 installed to do this, and then run:
 
 ```sh
 go install github.com/tablelandnetwork/basin-cli/cmd/basin@latest
 ```
 
+Also, the [`go-car`](https://github.com/ipld/go-car) CLI is required to extract the underlying parquet files from the CAR files retrieved from Basin. You'll need Go 1.20 (note: different thant the Basin CLI) and can install it with:
+
+```sh
+go install github.com/ipld/go-car/cmd/car@latest
+```
+
 ## Usage
 
-Running `src/main.py` will fetch remote files from Tableland Basin, load them into a `polars` LazyFrame, and then run queries on the data by collecting them into a DataFrame.
+Running `src/main.py` will fetch remote files from Tableland Basin, extract the contents with `go-car`, load the resulting parquet files into a DuckDB in-memory database, run queries on the data, and then collect them into a polars DataFrame for final operations (e.g., writing to files).
 
 To use default time ranges (the full dataset), run:
 
@@ -54,32 +64,28 @@ To use default time ranges (the full dataset), run:
 make run
 ```
 
-Or, you can define a custom time range with `start` and `end` arguments (Unix epoch timestamps in milliseconds), which will be used to filter the data when _queries_ are executed.
+Or, you can define a custom time range with `start` and `end` arguments (Unix epoch timestamps in milliseconds), which will be used to filter the data when _queries_ are executed. Note: the timestamp range for the `xm_data`'s `p1` publication starts on `1700438400000`.
 
 ```sh
 make run start=1700438400000 end=1700783999000
 ```
 
-This does not impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved. Note: the timestamp range for the `xm_data` namespace starts on `1700438400000`. Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
+This range does _not_ impact how Basin deals/data is fetched; _all_ publications and deals will be retrieved and extracted into the `inputs` directory. However, the `cache.json` file will store all previously extracted deals, so only new deals will be fetched on subsequent runs.
+
+Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[00:12:47] INFO     Getting publications...done in 1.21s
-[00:12:50] INFO     Getting deals for publications...done in 2.67s
+[23:20:15] INFO     Getting publications...done in 0.55s
+[23:20:18] INFO     Getting deals for publications...done in 3.10s
            INFO     Number of deals found: 5
-[00:12:51] INFO     Forming remote URLs for deals...done in 1.11s
-           INFO     Using public Web3 Storage gateway
-[00:12:57] INFO     Preparing LazyFrame from remote files...done in 5.93s
-[00:15:14] INFO     Executing queries...done in 136.41s
+           INFO     Number of new deals: 1
+           INFO     Extracting data from deals...done in 79.62s
+           INFO     Creating database with parquet files...done in 0.02s
+[23:21:41] INFO     Executing queries...done in 3.49s
 ⠙ Writing results to files...
 ```
 
-> Note: The program will load all files into memory, so it's best to run this on a machine with a decent amount of RAM. For example, five wxm parquet files will total to ~1.2GB in terms of raw file size, and preparing these in polars DataFrames for queries will use up to ~4.5GB of RAM in total.
-
-### Environment variables
-
-The default IPFS gateway used in requests is a public [Web3 Storage](https://web3.storage/) gateway. Optionally, you can override this with a custom [Pinata IPFS gateway](https://docs.pinata.cloud/docs/dedicated-ipfs-gateways). This will give you a unique domain (e.g., the "aquamarine-..." part of `aquamarine-casual-tarantula-177.mypinata.cloud`) and requires a custom access token. If you want to use a custom gateway, see the `.env.example` file and copy it to `.env`, setting the values for the `PINATA_SUBDOMAIN` and `PINATA_GATEWAY_TOKEN`.
-
-It is not required to do this as the default gateway will work fine when running locally. However, public gateways can sometimes run into rate limiting and cause 429 errors when fetching data—especially, for shared resources like in GitHub Actions. (This projects runs a workflow on a cron schedule that writes to `Data.md` and `history.csv`.)
+> Note: The program will download all files locally before creating the database and running queries, which will use up a bit of memory. For example, five wxm parquet files will total to ~1.2 GiB in terms of raw file size (each is 200-250 MiB). Over time, this will increase daily as more data is pushed to Basin.
 
 ### Flags
 
@@ -95,6 +101,7 @@ The following defines all commands available in the Makefile:
 
 - `make install`: Install dependencies with `pip`, upgrading pip first.
 - `make basin`: Install the Basin CLI from the latest release.
+- `make car`: Install `go-car` from the latest release.
 - `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write metrics to summary files.
 - `make venv`: Create a virtual environment (only for local development).
 - `make freeze`: Freeze dependencies (only for local development if you make changes to the deps).

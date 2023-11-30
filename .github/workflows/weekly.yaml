@@ -13,40 +13,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set swap space # Try to avoid OOM errors and crashes
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 10
-
       - name: Checkout repo content
         uses: actions/checkout@v2 # Checkout the repository content to github runner.
 
-      - name: Set up Go
+      - name: Set up Go 1.20 for go-car
+        uses: actions/setup-go@v2 # Set up the Go environment to run the go-car CLI
+        with:
+          go-version: "1.20"
+
+      - name: Install go-car CLI
+        run: |
+          make car
+
+      - name: Set up Go 1.21 for Basin
         uses: actions/setup-go@v2 # Set up the Go environment to run the Basin CLI
         with:
           go-version: "1.21"
+
+      - name: Install Basin CLI
+        run: |
+          make basin
 
       - name: Set up python
         uses: actions/setup-python@v2 # Set up the python 3.10 environment
         with:
           python-version: "3.10"
 
-      - name: Install Basin CLI and dependencies
+      - name: Install python dependencies
         run: |
-          make basin
           make install
 
       - name: Execute python script # Run the main.py script to get the latest data
         run: |
           make run
-        env:
-          PINATA_SUBDOMAIN: ${{ secrets.PINATA_SUBDOMAIN }} # Needed to avoid rate limiting
-          PINATA_GATEWAY_TOKEN: ${{ secrets.PINATA_GATEWAY_TOKEN }}
-          # Define start, end, and verbose if desired (see `make run` for more info)
+        # Define start, end, and verbose if desired (see `make run` for more info)
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "chore: weekly stats update"
-          file_pattern: "Data.md history.csv"
+          file_pattern: "Data.md history.csv cache.json"
           commit_user_name: "basin[bot]"

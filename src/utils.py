@@ -38,18 +38,21 @@ def is_pinata(url: str) -> bool:
     return True if "mypinata.cloud" in url else False
 
 
-def err(desc: str, e: Exception, e_type: type = RuntimeError) -> None:
+def err(message: str, e: Exception = None, e_type: type = RuntimeError) -> None:
     """Logs an error with a description and raises an exception."""
+    if e is not None:
+        message += f": {e}"
     if log_traceback is True:
         log.error(format_exc())
-    raise e_type(f"{desc}: {e}")
+
+    raise e_type(message)
 
 
-def log_err(desc: str) -> None:
+def log_err(message: str) -> None:
     """Logs an error with a description and traceback if enabled."""
     if log_traceback is True:
         log.error(format_exc())
-    log.error(f"{desc}")
+    log.error(f"{message}")
 
 
 def log_info(desc: str) -> None:

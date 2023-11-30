@@ -1,28 +1,58 @@
-import duckdb
-import os
-from utils import err, log_warn
+from pathlib import Path
+
+from duckdb import DuckDBPyConnection, connect
+from polars import DataFrame
+
+from utils import err
 
 
-def create_duckdb_connection(remote_files: list[str]):
+def create_database(data_dir: Path) -> DuckDBPyConnection:
     """
-    Create a DuckDB connection and load data from remote Parquet files.
+    Create a DuckDB connection and load data from local parquet files.
+
+    Parameters
+    ----------
+        data_dir (Path): Path to directory containing parquet files.
+
+    Returns
+    -------
+        db (DuckDBPyConnection): DuckDB connection object.
+
+    Raises
+    ------
+        Exception: If there is an error creating the DuckDB connection.
     """
-    remote_files = os.path.join("../xm_data/p1/*.parquet")
     try:
-        con = duckdb.connect()
-        con.execute(
-            f"CREATE VIEW xm_data AS SELECT * FROM read_parquet('{remote_files}');"
-        )
-        return con
+        db = connect()
+        files = Path(data_dir) / "*.parquet"  # Read all parquet files in data directory
+        db.execute(f"CREATE VIEW xm_data AS SELECT * FROM read_parquet('{files}');")
+
+        return db
     except Exception as e:
         err("Error creating DuckDB connection", e)
 
 
-def execute_queries(con, start: int | None, end: int | None):
+def execute_queries(
+    db: DuckDBPyConnection, start: int | None, end: int | None
+) -> DataFrame:
     """
-    Execute all queries using DuckDB and return the results as a DataFrame.
+    Execute all queries using DuckDB and return the results as polars DataFrame.
+
+    Parameters
+    ----------
+        db (DuckDBPyConnection): DuckDB connection object.
+        start (int | None): Start timestamp for time filtering.
+        end (int | None): End timestamp for time filtering.
+
+    Returns
+    -------
+        result (DataFrame): The result of the query.
+
+    Raises
+    ------
+        Exception: If there is an error executing the queries.
     """
-    # Add average calculations
+    # Set up columns for average calculations
     columns = [
         "temperature",
         "humidity",
@@ -37,6 +67,8 @@ def execute_queries(con, start: int | None, end: int | None):
         "precipitation_rate",
         "pressure",
     ]
+
+    # Set up all query parts
     avg_selection = [f"avg({col}) AS {col}" for col in columns]
     avg_calculations = ",".join(avg_selection)
     query_parts = [
@@ -47,7 +79,7 @@ def execute_queries(con, start: int | None, end: int | None):
         avg_calculations,
     ]
 
-    # Add WHERE clause for time filtering
+    # Add WHERE clause for time filtering, if applicable
     where_clause = ""
     if start is not None and end is not None:
         where_clause = f"WHERE timestamp > {start} AND timestamp < {end}"
@@ -56,23 +88,35 @@ def execute_queries(con, start: int | None, end: int | None):
     elif end is not None:
         where_clause = f"WHERE timestamp < {end}"
 
-    # Combine all parts into one query
+    # Combine all parts into one query and execute
     query = " ".join(query_parts) + " " + where_clause + " FROM xm_data"
-
     try:
-        result = con.execute(query).pl()
+        result = db.execute(query).pl()  # Create a polars DataFrame
         return result
     except Exception as e:
         err("Error executing DuckDB queries", e)
 
 
-def query_all_limit_n_duckdb(con, n: int):
+def query_all_limit_n_duckdb(db: DuckDBPyConnection, n: int) -> DataFrame:
     """
-    Returns the first 'n' rows of the provided table.
+    Returns the first 'n' rows of the provided table. For testing purposes.
+
+    Parameters
+    ----------
+        db (DuckDBPyConnection): DuckDB connection object.
+        n (int): The number of rows to return.
+
+    Returns
+    -------
+        result (DataFrame): The result of the query.
+
+    Raises
+    ------
+        Exception: If there is an error executing the query.
     """
     try:
         query = f"SELECT * FROM xm_data LIMIT {n}"
-        result = con.execute(query).pl()
+        result = db.execute(query).pl()  # Create a polars DataFrame
         return result
     except Exception as e:
         err("Error querying first 'n' rows in DuckDB", e)

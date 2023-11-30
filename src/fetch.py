@@ -1,14 +1,13 @@
 """Get Basin wxm publications & files to set up remote URLs for further queries."""
 
-from json import JSONDecodeError, loads
+from json import JSONDecodeError, dump, load, loads
+from os import walk
+from pathlib import Path
+from shutil import move
 from subprocess import CalledProcessError, run
-from time import sleep
+from tempfile import TemporaryDirectory
 
-from requests import get
-from requests.exceptions import HTTPError
-
-from config import pinata_gateway_token, pinata_subdomain
-from utils import err, log_warn
+from utils import err, log_info, log_warn
 
 
 def get_basin_pubs(address: str) -> list[str]:
@@ -53,9 +52,7 @@ def get_basin_pubs(address: str) -> list[str]:
 
 def get_basin_deals(pubs: list[str]) -> list[object]:
     """
-    Get deals for one or more publications, also inserting the corresponding
-    `namespace.publication` into the returned objects (used in forming URL
-    path when requesting remote files).
+    Get deals for one or more publications.
 
     Parameters
     ----------
@@ -69,6 +66,12 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     ------
         Exception: If there is an error getting the deals.
     """
+    if not pubs:
+        err(
+            "No publications provided",
+            ValueError("Invalid input"),
+            ValueError,
+        )
     deals = []
     # For each publication, run the `basin` command to get an array of deal
     # objects that contain the CID and other metadata
@@ -87,15 +90,11 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
             out = result.stdout
             if out:
                 pub_deals = loads(out)
-                for deal in pub_deals:
-                    # Add `namespace.publication` as `publication` to deal
-                    # object; helps with forming URL path when requesting
-                    deal["publication"] = pub
                 deals.extend(pub_deals)
             else:
                 # Note: this won't throw. It's possible that deals haven't been
                 # made yet, so it's ideal to keep things going.
-                log_warn(f"No deals found for publication {pub}")
+                log_warn(f"No deals found for publication: {pub}")
 
         except CalledProcessError as e:
             error_msg = f"Error finding basin deal for publication {pub}"
@@ -117,102 +116,200 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     return deals
 
 
-def format_url(cid: str, pub_path: str, file_name: str) -> str:
+def read_deals_cache(cache_file: Path) -> list[dict]:
     """
-    Form a remote IPFS URL to download files. It can optionally use a custom
-    Pinata gateway configuration or default to the Web3 Storage public gateway.
+    Read the deals cache file to get the list of deals that have been downloaded.
 
     Parameters
     ----------
-        cid (str): The CID of the deal.
-        pub_path (str): The `namespace/publication` path for the deal.
-        file_name (str): The filename of the parquet file.
+        cache_file (Path): The path to the cache file.
 
     Returns
     -------
-        str: The remote URL.
+        list[dict]: The list of deals.
 
     Raises
     ------
-        Exception: If there is an error forming the URL.
+        Exception: If there is an error reading the cache file.
     """
     try:
-        if pinata_subdomain is not None and pinata_gateway_token is not None:
-            # Use pinata gateway url and token if provided
-            url = f"https://{pinata_subdomain}.mypinata.cloud/ipfs/{cid}/{pub_path}/{file_name}?pinataGatewayToken={pinata_gateway_token}"
+        if Path.exists(cache_file):
+            with open(cache_file, "r") as f:
+                json_data = f.read()
+                deals = loads(json_data)
+                return deals
         else:
-            url = f"https://{cid}.ipfs.w3s.link/{pub_path}/{file_name}"
-
-        return url
-
+            return []
     except Exception as e:
-        err("Unexpected error forming url", e)
+        err("Error reading deals cache file", e, type(e))
 
 
-def get_basin_urls(pubs: list[object], max_retries=10, retry_delay=2) -> list[str]:
+def check_deals_cache(deals: list[object], cache_file: Path) -> list[object]:
     """
-    Form remote request URLs for each deal. This is needed in order to get the
-    parquet filename (via `dweb.link`) and then form the full URL for the as:
-    `https://<cid>.ipfs.w3s.link/<namespace>/<publication>/<file>`
+    Check if any new deals exist by comparing the list of deals to the cache.
 
     Parameters
     ----------
-        deals (list[object]): The list of deals.
-        max_retries (int): he maximum number of times to retry a failed
-            request. Defaults to 10.
-        retry_delay (int): he number of seconds to wait between retries.
-            Defaults to 2.
+        deals (list[dict]): The list of deals.
+        cache_file (Path): The path to the cache file.
 
     Returns
     -------
-        list[str]: The list of remote URLs.
+        list[dict]: The list of deals if new deals exist, otherwise, an empty
+            list with no deals.
 
     Raises
     ------
-        Exception: If there is an error getting the URLs.
+        Exception: If there is an error checking the cache file.
     """
-    # Use dweb.link to quickly get the filename for each deal where the path
-    # includes the CID, namespace, and publication
-    base_url = "https://dweb.link/api/v0/"
-    urls = []
+    try:
+        if not deals:
+            raise ValueError("No deals provided")
 
-    # For each publication, get the parquet filenames and create a w3s URL
-    for pub in pubs:
-        cid = pub["cid"]
-        pub_path = pub["publication"].replace(".", "/")
-        list_url = f"{base_url}ls?arg={cid}/{pub_path}/"
+        if not cache_file:
+            raise ValueError("No cache file provided")
 
-        attempts = 0
-        while attempts < max_retries:
-            try:
-                response = get(list_url)
+        if Path.exists(cache_file):
+            cached_deals = read_deals_cache(cache_file)
+            diff = [item for item in deals if item not in cached_deals]
+            log_info(f"Number of new deals: {len(diff)}")
 
-                # Check if the request was successful
-                if response.status_code == 200:
-                    data = response.json()
-                    file_name = data["Objects"][0]["Links"][0]["Name"]
-                    # Use either public w3s gateway or custom Pinata gateway
-                    get_url = format_url(cid, pub_path, file_name)
-                    urls.append(get_url)
-                    break  # Break out of the retry loop on success
+            return diff
+        else:
+            return deals
+    except Exception as e:
+        err("Error checking deals cache file", e, type(e))
+
+
+def write_deals_cache(deals: list[dict], cache_file: Path) -> None:
+    """
+    Write the deals cache file to store the list of deals that have been
+    downloaded.
+
+    Parameters
+    ----------
+        deals (list[dict]): The list of deals.
+        cache_file (Path): The path to the cache file.
+
+    Returns
+    -------
+        None
+
+    Raises
+    ------
+        Exception: If there is an error writing the cache file.
+    """
+    if not deals:
+        raise ValueError("No deals provided")
+
+    try:
+        # Read existing cache if file exists
+        if cache_file.exists():
+            with open(cache_file, "r") as f:
+                cached_deals = load(f)
+            cached_deals.extend(deals)
+        else:
+            cached_deals = deals
+
+        # Write updated cache
+        with open(cache_file, "w") as f:
+            dump(cached_deals, f, indent=2)
+    except Exception as e:
+        raise RuntimeError(f"Error writing deals cache file: {e}") from e
+
+
+def extract_deals(deals: list[dict], data_dir: Path) -> None:
+    """
+    Retrieve CAR files for each deal & extract the parquet files to `data_dir`.
+
+    Parameters
+    ----------
+        deals (list[dict]): The list of deals.
+        data_dir (Path): The path to the directory for storing parquet files.
+
+    Returns
+    -------
+        None
+
+    Raises
+    ------
+        Exception: If there is an error extracting the deals.
+    """
+    if not deals:
+        err(
+            "No deals provided",
+            ValueError("Invalid input"),
+            ValueError,
+        )
+    # Ensure the 'data' directory exists, or create it
+    if not Path.exists(data_dir):
+        err(
+            "Data directory does not exist",
+            ValueError("Invalid input"),
+            ValueError,
+        )
+    # Retrieve CAR files for each deal
+    try:
+        with TemporaryDirectory() as temp_dir_car:
+            for deal in deals:
+                cid = deal.get("cid")
+                if cid:
+                    try:
+                        command = ["basin", "publication", "retrieve", cid]
+                        run(
+                            command,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            cwd=temp_dir_car,
+                        )
+                    except CalledProcessError as e:
+                        err(f"Error extracting data for CID '{cid}'", e)
+                    except Exception as e:
+                        err(f"Unexpected error occurred for CID '{cid}'", e)
                 else:
-                    error_msg = "HTTP request error"
-                    err(error_msg, response.status_code, HTTPError)
-
-            except HTTPError as e:
-                # Sometimes, 500 errors will occur and requires retry logic
-                if response.status_code == 500:
-                    attempts += 1
-                    log_warn(
-                        f"Error forming request url for {cid}. Retrying (attempt {attempts} of {max_retries})...",
+                    err(
+                        f"Deal does not have a 'cid' key",
+                        ValueError("Invalid input"),
+                        ValueError,
                     )
-                    sleep(retry_delay)
-                else:
-                    err("HTTP error occurred", e, type(e))
-            except Exception as e:
-                err("Unexpected error getting urls", e)
-        if attempts >= max_retries:
-            error_msg = f"Failed to retrieve urls after {max_retries} attempts."
-            err(error_msg, e)
 
-    return urls
+            # Process each file in the `temp_dir_car` and store in
+            # `temp_dir_files`
+            with TemporaryDirectory() as temp_dir_files:
+                for file_path in Path(temp_dir_car).iterdir():
+                    if Path.is_file(file_path):
+                        try:
+                            # Change working directory to 'data' directory
+                            command = ["car", "extract", "--file", file_path]
+                            run(
+                                command,
+                                capture_output=True,
+                                text=True,
+                                check=True,
+                                cwd=temp_dir_files,
+                            )
+                            # Change back to the original working directory
+                        except CalledProcessError as e:
+                            err(f"Error extracting file {file_path}", e)
+                        except Exception as e:
+                            err(f"Unexpected error occurred for file {file_path}", e)
+                    else:
+                        err(
+                            f"Path is not a file: {file_path}",
+                            ValueError("Invalid input"),
+                            ValueError,
+                        )
+
+                # Avoid nested file structure and move each parquet file to `data_dir`
+                for temp_root, _, files in walk(temp_dir_files):
+                    for file in files:
+                        if file.endswith(".parquet"):
+                            source_file = Path(temp_root) / file
+                            target_file = data_dir / file
+
+                            # Move files to the data directory
+                            move(str(source_file), str(target_file))
+
+    except Exception as e:
+        err("Error extracting deals", e, type(e))
