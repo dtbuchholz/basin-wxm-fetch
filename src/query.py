@@ -82,14 +82,14 @@ def execute_queries(
     # Add WHERE clause for time filtering, if applicable
     where_clause = ""
     if start is not None and end is not None:
-        where_clause = f"WHERE timestamp > {start} AND timestamp < {end}"
+        where_clause = f"WHERE timestamp >= {start} AND timestamp <= {end}"
     elif start is not None:
-        where_clause = f"WHERE timestamp > {start}"
+        where_clause = f"WHERE timestamp >= {start}"
     elif end is not None:
-        where_clause = f"WHERE timestamp < {end}"
+        where_clause = f"WHERE timestamp <= {end}"
 
     # Combine all parts into one query and execute
-    query = " ".join(query_parts) + " " + where_clause + " FROM xm_data"
+    query = " ".join(query_parts) + " FROM xm_data" + f" {where_clause}"
     try:
         result = db.execute(query).pl()  # Create a polars DataFrame
         return result
