@@ -1,6 +1,6 @@
 # Data
 
-_Generated on **2023-11-30** for data in range **2023-11-20 00:00:00** to **2023-11-23 23:59:59**._
+_Generated on **2023-12-04** for data in range **2023-11-20 00:00:00** to **2023-11-23 23:59:59**._
 
 The schema for the raw data is as follows:
 
@@ -38,10 +38,10 @@ And three additional columns for run metadata:
 
 ## Averages & cumulative metrics
 
-| job_date   | range_start   | range_end     | number_of_devices | cell_id_mode    | total_precipitation | temperature | humidity | precipitation_accumulated |
+| Job date   | Range start   | Range end     | Number of devices | Cell id mode    | Total precipitation | Temperature | Humidity | Precipitation accumulated |
 |------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
-| 2023-11-30 | 1700438400000 | 1700783999000 | 3414              | 871ec93adffffff | 96307242272.868     | 8.908       | 79.626   | 1421.832                  |
+| 2023-12-04 | 1700438400000 | 1700783999000 | 3414              | 871ec93adffffff | 96307242272.553     | 8.908       | 79.626   | 1421.832                  |
 
-| wind_speed | wind_gust | wind_direction | illuminance | solar_irradiance | fo_uv   | uv_index | precipitation_rate | pressure |
+| Wind speed | Wind gust | Wind direction | Illuminance | Solar irradiance | Fo uv   | Uv index | Precipitation rate | Pressure |
 |------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
 | 1.038      | 1.374     | 189.856        | 271303.023  | 2136.558         | 224.874 | 0.255    | 0.068              | 993.612  |

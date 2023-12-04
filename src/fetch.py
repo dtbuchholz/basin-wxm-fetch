@@ -7,7 +7,10 @@ from shutil import move
 from subprocess import CalledProcessError, run
 from tempfile import TemporaryDirectory
 
-from utils import err, log_info, log_warn
+from requests import get
+from requests.exceptions import RequestException
+
+from utils import err, log_warn
 
 
 def get_basin_pubs(address: str) -> list[str]:
@@ -28,20 +31,19 @@ def get_basin_pubs(address: str) -> list[str]:
         Exception: If there is an error getting the publications.
     """
     try:
-        command = ["basin", "publication", "list", "--address", address]
-        result = run(command, capture_output=True, text=True, check=True)
-        out = result.stdout
-        if out:
-            pubs = out.strip().split("\n")
+        url = "https://basin.tableland.xyz/vaults"
+        params = {"account": address}
+        response = get(url, params=params)
+
+        if response.status_code == 200:
+            pubs = response.json()
             return pubs
         else:
             err(
-                f"No publications found for address {address}",
-                ValueError("Invalid input"),
-                ValueError,
+                f"Failed to fetch data: {response.status_code}",
             )
 
-    except CalledProcessError as e:
+    except RequestException as e:
         error_msg = f"Error getting basin publications for address {address}"
         err(error_msg, e, type(e))
 
@@ -77,26 +79,18 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     # objects that contain the CID and other metadata
     for pub in pubs:
         try:
-            command = [
-                "basin",
-                "publication",
-                "deals",
-                "--publication",
-                pub,
-                "--format",
-                "json",
-            ]
-            result = run(command, capture_output=True, text=True, check=True)
-            out = result.stdout
-            if out:
-                pub_deals = loads(out)
+            url = f"https://basin.tableland.xyz/vaults/{pub}/records"
+            response = get(url)
+
+            if response.status_code == 200:
+                pub_deals = response.json()
                 deals.extend(pub_deals)
             else:
                 # Note: this won't throw. It's possible that deals haven't been
                 # made yet, so it's ideal to keep things going.
                 log_warn(f"No deals found for publication: {pub}")
 
-        except CalledProcessError as e:
+        except RequestException as e:
             error_msg = f"Error finding basin deal for publication {pub}"
             err(error_msg, e, type(e))
 

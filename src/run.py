@@ -287,6 +287,9 @@ def convert_df_to_markdown(df: DataFrame) -> str:
     Format a DataFrame to a markdown table, splitting into two tables of
     approximately equal widths.
     """
+    # Replace underscores with spaces and capitalize column names
+    df.columns = [col.replace("_", " ").capitalize() for col in df.columns]
+    # Split the DataFrame into two DataFrames
     split_at = ceil(df.width / 2)
     df1 = df.select(df.columns[:split_at])
     df2 = df.select(df.columns[split_at:])
@@ -302,8 +305,6 @@ def convert_df_to_markdown(df: DataFrame) -> str:
             set_fmt_float="full",  # Show full float precision
             set_tbl_cols=-1,  # Show all columns
         ):
-            # Replace underscores with spaces and capitalize column names
-            df.columns = [col.replace("_", " ").capitalize() for col in df.columns]
             print(df1)
             print()
             print(df2)

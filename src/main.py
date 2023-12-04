@@ -13,7 +13,7 @@ def main():
     - Checks if a local cache exists, and if so, checks if any new deals
       have been made since the last run, and if not, exits early.
     - Sets up a DuckDB in-memory database filled by parquet file data.
-    - Executes queries for averages across all columns,
+    - Executes queries for averages across all columns.
     - Executes queries for total precipitation, number of unique devices,
       and the most common cell_id.
     - Writes results to a CSV file, appending to a history file if it exists.
