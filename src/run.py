@@ -251,10 +251,13 @@ def write_history_plots(root: Path, exclude_cols: list[str]) -> None:
                 # Format y-axis to use fixed-point notation with one decimal
                 ax = plt.gca()  # Get the current axis
                 ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
-
                 plt.grid(True)
+
+                # Ensure the directory exists
+                assets_dir = Path(root) / "assets"
+                assets_dir.mkdir(parents=True, exist_ok=True)
                 # Save the plot
-                file_path = Path(root) / "assets" / f"{col}.png"
+                file_path = assets_dir / f"{col}.png"
                 plt.savefig(file_path)
     except Exception as e:
         err("Error in write_history_plots", e)
@@ -342,7 +345,7 @@ def write_markdown(df: DataFrame, root: Path, exclude_cols: list[str]) -> None:
             for col in df_for_plot.columns:
                 # Convert column name to lowercase for the filename
                 file_name = col + ".png"
-                image_path = Path(root) / "assets " / file_name
+                image_path = f"./assets/{file_name}"
 
                 # Write the Markdown syntax for embedding the image
                 md_file.write(f"### {to_title_case(col)}\n\n")
