@@ -52,5 +52,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "chore: weekly stats update"
-          file_pattern: "Data.md history.csv cache.json"
+          file_pattern: "Data.md history.csv cache.json assets/*"
           commit_user_name: "basin[bot]"

@@ -1,14 +1,16 @@
 """Set up an in-memory database for remote files, execute queries, and write to CSV and markdown."""
 
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from math import ceil
 from pathlib import Path
 from textwrap import dedent
 
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 from duckdb import DuckDBPyConnection
-from polars import Config, DataFrame, Series, concat
+from polars import Config, DataFrame, Date, Series, col as pl_col, concat, read_csv
 
 from fetch import (
     check_deals_cache,
@@ -18,7 +20,14 @@ from fetch import (
     write_deals_cache,
 )
 from query import create_database, execute_queries
-from utils import err, format_unix_ms, get_current_date, log_info, wrap_task
+from utils import (
+    err,
+    format_unix_ms,
+    get_current_date,
+    log_info,
+    to_title_case,
+    wrap_task,
+)
 
 
 def prepare_data(root: Path) -> DuckDBPyConnection | None:
@@ -139,8 +148,12 @@ def write_files(df: DataFrame, root: Path) -> None:
     """
     try:
         prepared = prepare_output(df)
+        # Write the history CSV file and plots to `assets` directory
         write_history_csv(prepared, root)
-        write_markdown(prepared, root)
+        # Exclude certain columns for the plots
+        exclude_cols = ["job_date", "cell_id_mode", "range_start", "range_end"]
+        write_history_plots(root, exclude_cols)
+        write_markdown(prepared, root, exclude_cols)
     except Exception as e:
         err("Error in write_results", e)
 
@@ -197,10 +210,57 @@ def write_history_csv(df: DataFrame, root: Path) -> None:
             df.write_csv(history_file)
     except Exception as e:
         err("Error in write_history_csv", e)
-        raise
 
 
-def write_markdown(df: DataFrame, root: Path) -> None:
+def write_history_plots(root: Path, exclude_cols: list[str]) -> None:
+    """
+    Write plots for all columns in the history CSV file.
+
+    Parameters
+    ----------
+        root (Path): The root directory for the program.
+        exclude_cols (list[str]): The columns to exclude from the plots.
+
+    Returns
+    -------
+        None
+
+    Raises
+    ------
+        Exception: If there is an error writing the plots.
+    """
+    try:
+        file_path = Path(root) / "history.csv"
+        df = read_csv(file_path)
+
+        # Convert 'job_date' to a datetime type for plotting
+        df = df.with_columns(pl_col("job_date").str.strptime(Date))
+
+        # Plot all average and aggregate columns
+        for col in df.columns:
+            if col not in exclude_cols:
+                plt.figure(figsize=(10, 6))
+                plt.plot(df["job_date"], df[col], marker="o")
+                plt.title(f"{to_title_case(col)} Over Time")
+                plt.xlabel("Date")
+                plt.ylabel(col)
+                # Set date format on x-axis
+                plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+                plt.gca().xaxis.set_major_locator(mdates.DayLocator())
+                plt.gcf().autofmt_xdate()
+                # Format y-axis to use fixed-point notation with one decimal
+                ax = plt.gca()  # Get the current axis
+                ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
+
+                plt.grid(True)
+                # Save the plot
+                file_path = Path(root) / "assets" / f"{col}.png"
+                plt.savefig(file_path)
+    except Exception as e:
+        err("Error in write_history_plots", e)
+
+
+def write_markdown(df: DataFrame, root: Path, exclude_cols: list[str]) -> None:
     """
     Overwrite the run's DataFrame results to a markdown file.
 
@@ -224,6 +284,7 @@ def write_markdown(df: DataFrame, root: Path) -> None:
         job_date = df["job_date"][0]
         range_start = df["range_start"][0]
         range_end = df["range_end"][0]
+        df_for_plot = df.drop(exclude_cols)  # Drop columns that aren't plotted
         # Get the DataFrame as markdown tables
         markdown_tables = convert_df_to_markdown(df)
 
@@ -277,6 +338,15 @@ def write_markdown(df: DataFrame, root: Path) -> None:
             md_file.write(md_content)
             md_file.write(f"## Averages & cumulative metrics\n\n")
             md_file.write(markdown_tables)
+            md_file.write(f"\n## Historical plots\n\n")
+            for col in df_for_plot.columns:
+                # Convert column name to lowercase for the filename
+                file_name = col + ".png"
+                image_path = Path(root) / "assets " / file_name
+
+                # Write the Markdown syntax for embedding the image
+                md_file.write(f"### {to_title_case(col)}\n\n")
+                md_file.write(f"![{to_title_case(col)}]({image_path})\n\n")
     except Exception as e:
         err("Error in write_markdown", e)
         raise
@@ -288,7 +358,7 @@ def convert_df_to_markdown(df: DataFrame) -> str:
     approximately equal widths.
     """
     # Replace underscores with spaces and capitalize column names
-    df.columns = [col.replace("_", " ").capitalize() for col in df.columns]
+    df.columns = [to_title_case(col) for col in df.columns]
     # Split the DataFrame into two DataFrames
     split_at = ceil(df.width / 2)
     df1 = df.select(df.columns[:split_at])

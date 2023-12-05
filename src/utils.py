@@ -33,9 +33,9 @@ def get_current_date() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def is_pinata(url: str) -> bool:
-    """Returns true if the URL is a Pinata gateway URL (used in logging info)."""
-    return True if "mypinata.cloud" in url else False
+def to_title_case(input: str):
+    """Converts a snake_case string to Title Case."""
+    return " ".join(word.capitalize() for word in input.split("_"))
 
 
 def err(message: str, e: Exception = None, e_type: type = RuntimeError) -> None:
