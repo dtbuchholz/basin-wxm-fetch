@@ -79,7 +79,7 @@ def get_basin_deals(pubs: list[str]) -> list[object]:
     # objects that contain the CID and other metadata
     for pub in pubs:
         try:
-            url = f"https://basin.tableland.xyz/vaults/{pub}/records"
+            url = f"https://basin.tableland.xyz/vaults/{pub}/events"
             response = get(url)
 
             if response.status_code == 200:
@@ -212,6 +212,7 @@ def write_deals_cache(deals: list[dict], cache_file: Path) -> None:
 
 
 def extract_deals(deals: list[dict], data_dir: Path) -> None:
+    return
     """
     Retrieve CAR files for each deal & extract the parquet files to `data_dir`.
 

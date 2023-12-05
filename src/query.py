@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from duckdb import DuckDBPyConnection, connect
-from polars import DataFrame
+from polars import DataFrame as PlDataFrame
+from pandas import DataFrame as PdDataFrame
 
 from utils import err
 
@@ -34,7 +35,7 @@ def create_database(data_dir: Path) -> DuckDBPyConnection:
 
 def execute_queries(
     db: DuckDBPyConnection, start: int | None, end: int | None
-) -> DataFrame:
+) -> PlDataFrame:
     """
     Execute all queries using DuckDB and return the results as polars DataFrame.
 
@@ -94,10 +95,59 @@ def execute_queries(
         result = db.execute(query).pl()  # Create a polars DataFrame
         return result
     except Exception as e:
-        err("Error executing DuckDB queries", e)
+        err("Error executing DuckDB aggregate queries", e)
 
 
-def query_all_limit_n_duckdb(db: DuckDBPyConnection, n: int) -> DataFrame:
+def query_bbox(
+    db: DuckDBPyConnection,
+    bbox: tuple[int, int, int, int],
+    start: int | None,
+    end: int | None,
+) -> PdDataFrame:
+    """
+    Execute a query using DuckDB and return the results as pandas DataFrame.
+
+    Parameters
+    ----------
+        db (DuckDBPyConnection): DuckDB connection object.
+        bbox (tuple[int, int, int, int]): Bounding box coordinates.
+        start (int | None): Start timestamp for time filtering.
+        end (int | None): End timestamp for time filtering.
+
+    Returns
+    -------
+        result (DataFrame): The result of the query.
+
+    Raises
+    ------
+        Exception: If there is an error executing the query.
+    """
+    # DuckDB query to select and aggregate data within the bounding box
+    query = f"""
+    SELECT cell_id, SUM(precipitation_accumulated) as total_precipitation, AVG(lat) as lat, AVG(lon) as lon
+    FROM xm_data
+    WHERE lat BETWEEN {bbox[0]} AND {bbox[1]} AND lon BETWEEN {bbox[2]} AND {bbox[3]}
+    """
+
+    # Add WHERE clause for time filtering, if applicable
+    where_clause = ""
+    if start is not None and end is not None:
+        where_clause = f"AND timestamp >= {start} AND timestamp <= {end}"
+    elif start is not None:
+        where_clause = f"AND timestamp >= {start}"
+    elif end is not None:
+        where_clause = f"AND timestamp <= {end}"
+
+    # Combine all parts into one query and execute
+    query = query + f" {where_clause}" + " GROUP BY cell_id"
+    try:
+        result = db.execute(query).df()  # Create a pandas PdDataframe
+        return result
+    except Exception as e:
+        err("Error executing DuckDB bbox query", e)
+
+
+def query_all_limit_n_duckdb(db: DuckDBPyConnection, n: int) -> PlDataFrame:
     """
     Returns the first 'n' rows of the provided table. For testing purposes.
 

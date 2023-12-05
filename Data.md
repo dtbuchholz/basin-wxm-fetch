@@ -40,67 +40,93 @@ And three additional columns for run metadata:
 
 | Job Date   | Range Start   | Range End     | Number Of Devices | Cell Id Mode    | Total Precipitation | Temperature | Humidity | Precipitation Accumulated |
 |------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
-| 2023-12-05 | 1700438400000 | 1700783999000 | 3414              | 871ec93adffffff | 96307242272.794     | 8.908       | 79.626   | 1421.832                  |
+| 2023-12-05 | 1700438400000 | 1700783999000 | 3414              | 871ec93adffffff | 96307242272.551     | 8.908       | 79.626   | 1421.832                  |
 
 | Wind Speed | Wind Gust | Wind Direction | Illuminance | Solar Irradiance | Fo Uv   | Uv Index | Precipitation Rate | Pressure |
 |------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
 | 1.038      | 1.374     | 189.856        | 271303.023  | 2136.558         | 224.874 | 0.255    | 0.068              | 993.612  |
 
+## Precipitation accumulated maps
+
+### North America
+
+![North America](./assets/maps/precipitation_map_north_america.png)
+
+### South America
+
+![South America](./assets/maps/precipitation_map_south_america.png)
+
+### Africa
+
+![Africa](./assets/maps/precipitation_map_africa.png)
+
+### Europe
+
+![Europe](./assets/maps/precipitation_map_europe.png)
+
+### Asia
+
+![Asia](./assets/maps/precipitation_map_asia.png)
+
+### Australia
+
+![Australia](./assets/maps/precipitation_map_australia.png)
+
 ## Historical plots
 
 ### Number Of Devices
 
-![Number Of Devices](./assets/number_of_devices.png)
+![Number Of Devices](./assets/averages/number_of_devices.png)
 
 ### Total Precipitation
 
-![Total Precipitation](./assets/total_precipitation.png)
+![Total Precipitation](./assets/averages/total_precipitation.png)
 
 ### Temperature
 
-![Temperature](./assets/temperature.png)
+![Temperature](./assets/averages/temperature.png)
 
 ### Humidity
 
-![Humidity](./assets/humidity.png)
+![Humidity](./assets/averages/humidity.png)
 
 ### Precipitation Accumulated
 
-![Precipitation Accumulated](./assets/precipitation_accumulated.png)
+![Precipitation Accumulated](./assets/averages/precipitation_accumulated.png)
 
 ### Wind Speed
 
-![Wind Speed](./assets/wind_speed.png)
+![Wind Speed](./assets/averages/wind_speed.png)
 
 ### Wind Gust
 
-![Wind Gust](./assets/wind_gust.png)
+![Wind Gust](./assets/averages/wind_gust.png)
 
 ### Wind Direction
 
-![Wind Direction](./assets/wind_direction.png)
+![Wind Direction](./assets/averages/wind_direction.png)
 
 ### Illuminance
 
-![Illuminance](./assets/illuminance.png)
+![Illuminance](./assets/averages/illuminance.png)
 
 ### Solar Irradiance
 
-![Solar Irradiance](./assets/solar_irradiance.png)
+![Solar Irradiance](./assets/averages/solar_irradiance.png)
 
 ### Fo Uv
 
-![Fo Uv](./assets/fo_uv.png)
+![Fo Uv](./assets/averages/fo_uv.png)
 
 ### Uv Index
 
-![Uv Index](./assets/uv_index.png)
+![Uv Index](./assets/averages/uv_index.png)
 
 ### Precipitation Rate
 
-![Precipitation Rate](./assets/precipitation_rate.png)
+![Precipitation Rate](./assets/averages/precipitation_rate.png)
 
 ### Pressure
 
-![Pressure](./assets/pressure.png)
+![Pressure](./assets/averages/pressure.png)
 

@@ -37,7 +37,10 @@ To set things up (for local development), you'll need to do the following:
 
 You want to make sure you activate the environment in the second step before installing. Note the core dependencies installed are:
 
+- [`contextily`](https://contextily.readthedocs.io/en/latest/): Used for plotting data on a map.
 - [`duckdb`](https://duckdb.org/docs/api/python/overview): Creates an in-memory SQL database for querying parquet files extracted from Basin.
+- [`geopandas`](https://geopandas.org/en/stable/): Also used for plotting data on a map.
+- [`shapely`](https://pypi.org/project/shapely/): Required for `geopandas` to work.
 - [`requests`](https://pypi.org/project/requests/): Make requests to Basin HTTP API to fetch data.
 - [`polars`](https://pola.rs/): Used for DataFrame operations as part of post-query logic.
 - [`pyarrow`](https://pypi.org/project/pyarrow/): Required for DuckDB to work with parquet files.

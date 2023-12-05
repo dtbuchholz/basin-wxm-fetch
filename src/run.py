@@ -6,9 +6,13 @@ from math import ceil
 from pathlib import Path
 from textwrap import dedent
 
+import contextily as ctx
+import geopandas as gpd
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as ticker
+from matplotlib.colors import TwoSlopeNorm
 from duckdb import DuckDBPyConnection
 from polars import Config, DataFrame, Date, Series, col as pl_col, concat, read_csv
 
@@ -19,7 +23,7 @@ from fetch import (
     get_basin_pubs,
     write_deals_cache,
 )
-from query import create_database, execute_queries
+from query import create_database, execute_queries, query_bbox
 from utils import (
     err,
     format_unix_ms,
@@ -120,11 +124,132 @@ def run(db: DuckDBPyConnection, root: Path, start: int | None, end: int | None) 
     # Execute queries and get the results as a polars DataFrame
     # Also, set `start` and `end` time dynamically, if None
     df = wrap_task(lambda: execute_queries(db, start, end), "Executing queries...")
+    # Generate plots for bbox across the database and write to files
+    wrap_task(
+        lambda: execute_bbox_plots(db, root, start, end),
+        "Generating bbox plots...",
+    )
     # Prepare the data and write to files
     wrap_task(
         lambda: write_files(df, root),
         "Writing results to files...",
     )
+
+
+def execute_bbox_plots(
+    db: DuckDBPyConnection, root: Path, start: int | None, end: int | None
+) -> None:
+    """
+    Execute queries for each bbox and generate plots for each.
+
+    Parameters
+    ----------
+        db (DuckDBPyConnection): The database to query.
+        root (Path): The root directory for the program.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+
+    Returns
+    -------
+        None
+
+    Raises
+    ------
+        Exception: If there is an error executing the queries or writing the
+            results.
+    """
+    try:
+        bboxes = {
+            "north_america": (14, 72, -172, -52),
+            "south_america": (-55, 12, -85, -34),
+            "europe": (35, 72, -13, 60),
+            "africa": (-35, 38, -18, 55),
+            "asia": (-11, 81, 25, 179),
+            "australia": (-48, -6, 108, 178),
+        }
+        for region_name, bbox in bboxes.items():
+            write_plot_precipitation_by_bbox(db, root, start, end, bbox, region_name)
+    except Exception as e:
+        err("Error in execute_bbox_plots", e)
+
+
+def write_plot_precipitation_by_bbox(
+    db: DuckDBPyConnection,
+    root: Path,
+    start: int | None,
+    end: int | None,
+    bbox: tuple[int, int, int, int],
+    region_name: str,
+) -> None:
+    """
+    Write a plot of precipitation accumulated by cell ID for a given bbox.
+
+    Parameters
+    ----------
+        db (DuckDBPyConnection): The database to query.
+        root (Path): The root directory for the program.
+        start (int): The start of the query time range.
+        end (int): The end of the query time range.
+        bbox (tuple[int, int, int, int]): The bbox to query.
+        region_name (str): The name of the region for the plot.
+
+    Returns
+    -------
+        None
+
+    Raises
+    ------
+        Exception: If there is an error writing the plot.
+    """
+    try:
+        df = query_bbox(db, bbox, start, end)
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df["lon"], df["lat"]))
+        gdf.crs = "EPSG:4326"  # Set the coordinate reference system to WGS84
+        gdf = gdf.to_crs(epsg=3857)  # Re-project to Web Mercator
+
+        # Normalize the data for color mapping
+        vmin = gdf["total_precipitation"].min()
+        vmax = gdf["total_precipitation"].max()
+        norm = TwoSlopeNorm(vmin=vmin, vcenter=(vmin + vmax) / 2, vmax=vmax)
+
+        # Create the figure and axes
+        fig, ax = plt.subplots(figsize=(15, 10))
+        gdf.plot(
+            ax=ax,
+            column="total_precipitation",
+            cmap="viridis",
+            alpha=0.6,
+            edgecolor="k",
+            markersize=5,
+            norm=norm,
+        )
+
+        # Add a basemap
+        ctx.add_basemap(ax, source=ctx.providers.CartoDB.PositronNoLabels)
+
+        # Set axis off
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_title(
+            f"Precipitation Accumulated by Cell ID for {to_title_case(region_name)}"
+        )
+
+        # Add a color bar
+        sm = cm.ScalarMappable(cmap="viridis", norm=norm)
+        sm._A = []  # Empty array for the data range
+        cb = fig.colorbar(sm, ax=ax, fraction=0.03, pad=0.04)
+        cb.set_label("Total Precipitation")
+
+        # Save the plot; ensure the directory exists
+        maps_dir = Path(root) / "assets" / "maps"
+        maps_dir.mkdir(parents=True, exist_ok=True)
+        file_name = maps_dir / f"precipitation_map_{region_name}.png"
+        plt.savefig(file_name, bbox_inches="tight", pad_inches=0)
+        plt.close(fig)  # Close the plot to free memory
+    except Exception as e:
+        err("Error in write_plot_precipitation_by_bbox", e)
 
 
 def write_files(df: DataFrame, root: Path) -> None:
@@ -254,10 +379,10 @@ def write_history_plots(root: Path, exclude_cols: list[str]) -> None:
                 plt.grid(True)
 
                 # Ensure the directory exists
-                assets_dir = Path(root) / "assets"
-                assets_dir.mkdir(parents=True, exist_ok=True)
+                averages_dir = Path(root) / "assets" / "averages"
+                averages_dir.mkdir(parents=True, exist_ok=True)
                 # Save the plot
-                file_path = assets_dir / f"{col}.png"
+                file_path = averages_dir / f"{col}.png"
                 plt.savefig(file_path)
     except Exception as e:
         err("Error in write_history_plots", e)
@@ -341,11 +466,24 @@ def write_markdown(df: DataFrame, root: Path, exclude_cols: list[str]) -> None:
             md_file.write(md_content)
             md_file.write(f"## Averages & cumulative metrics\n\n")
             md_file.write(markdown_tables)
-            md_file.write(f"\n## Historical plots\n\n")
+            # Write the precipitation accumulated maps to the markdown file
+            maps_dir = root / "assets" / "maps"
+            md_file.write(f"\n## Precipitation accumulated maps\n\n")
+            for file_path in maps_dir.iterdir():
+                # Check if the path is a file and it's a PNG image
+                if file_path.is_file() and file_path.suffix == ".png":
+                    # Extract the base file name without the suffix
+                    base_name = file_path.stem
+                    title = to_title_case(base_name.replace("precipitation_map_", ""))
+                    image_path = f"./assets/maps/{file_path.name}"
+                    md_file.write(f"### {title}\n\n")
+                    md_file.write(f"![{title}]({image_path})\n\n")
+            # Write historical CSV plots to the markdown file
+            md_file.write(f"## Historical plots\n\n")
             for col in df_for_plot.columns:
                 # Convert column name to lowercase for the filename
                 file_name = col + ".png"
-                image_path = f"./assets/{file_name}"
+                image_path = f"./assets/averages/{file_name}"
 
                 # Write the Markdown syntax for embedding the image
                 md_file.write(f"### {to_title_case(col)}\n\n")
