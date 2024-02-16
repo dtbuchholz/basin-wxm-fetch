@@ -1,0 +1,63 @@
+name: Daily
+
+on:
+    workflow_dispatch:
+    schedule:
+        - cron: "0 0 * * *" # Run everyday
+
+permissions:
+    contents: write
+
+jobs:
+    update:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repo content
+              uses: actions/checkout@v2 # Checkout the repository content to github runner.
+
+            - name: Set up Go 1.20 for go-car
+              uses: actions/setup-go@v2 # Set up the Go environment to run the go-car CLI
+              with:
+                  go-version: "1.20"
+
+            - name: Install go-car CLI
+              run: |
+                  make car
+
+            - name: Set up Go 1.21 for Basin
+              uses: actions/setup-go@v2 # Set up the Go environment to run the Basin CLI
+              with:
+                  go-version: "1.21"
+
+            - name: Install Basin CLI
+              run: |
+                  make basin
+
+            - name: Set up python
+              uses: actions/setup-python@v1 # Set up the python 3.10 environment
+              with:
+                  python-version: "3.11"
+
+            - name: Install dependencies with pipenv
+              run: |
+                  pip install pipenv
+                  pipenv install --deploy --dev
+
+            - name: Execute python script # Run the main.py script to get the latest data
+              run: |
+                  make run
+
+            - name: Post script cleanup
+              run: |
+                  pipenv run isort --diff .
+                  pipenv run black --check .
+                  pipenv run flake8
+                  pipenv run mypy
+
+            - name: Commit changes
+              uses: stefanzweifel/git-auto-commit-action@v4
+              with:
+                  commit_message: "chore: daily stats update"
+                  file_pattern: "Data.md history.csv cache.json assets/*"
+                  commit_user_name: "basin[bot]"
