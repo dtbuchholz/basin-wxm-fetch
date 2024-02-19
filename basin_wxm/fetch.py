@@ -3,6 +3,7 @@
 from json import JSONDecodeError, dump, load, loads
 from os import walk
 from pathlib import Path
+from shutil import Error as ShError
 from shutil import move
 from subprocess import CalledProcessError, run
 from tempfile import TemporaryDirectory
@@ -11,7 +12,7 @@ from typing import Dict, List
 from requests import get
 from requests.exceptions import RequestException
 
-from .utils import err, log_warn
+from .utils import err, log_info, log_warn
 
 
 def get_vaults(address: str) -> List[str]:
@@ -252,7 +253,7 @@ def extract_events(events: List[Dict], data_dir: Path) -> None:
             # Process each file in the `temp_dir_events` and store in
             # `temp_dir_files`
             with TemporaryDirectory() as temp_dir_files:
-                extract_parquet(temp_dir_files, temp_dir_files)
+                extract_parquet(temp_dir_events, temp_dir_files)
 
                 # Move each parquet file to `data_dir`
                 for temp_root, _, files in walk(temp_dir_files):
@@ -262,9 +263,11 @@ def extract_events(events: List[Dict], data_dir: Path) -> None:
 
                             # Move files to the data directory
                             move(str(source_file), str(data_dir))
-
-    except Exception as e:
-        err("Error extracting events", e, type(e))
+    except ShError as e:
+        if "already exists" in str(e):
+            log_info("Data already extracted for event")
+        else:
+            err("Error extracting events", e, type(e))
 
 
 def retrieve_events(events: List[Dict], dir: str) -> None:
@@ -284,12 +287,6 @@ def retrieve_events(events: List[Dict], dir: str) -> None:
     ------
         Exception: If there is an error retrieving the events.
     """
-    if not events or not dir:
-        err(
-            "No events or dir provided",
-            ValueError("Invalid input"),
-            ValueError,
-        )
     for event in events:
         cid = event.get("cid")
         if cid:
@@ -308,7 +305,7 @@ def retrieve_events(events: List[Dict], dir: str) -> None:
                 err(f"Unexpected error occurred for CID '{cid}'", e)
         else:
             err(
-                "Deal does not have a 'cid' key",
+                "Event does not have a 'cid' key",
                 ValueError("Invalid input"),
                 ValueError,
             )
@@ -336,7 +333,13 @@ def extract_parquet(dir_events: str, dir_parquet: str) -> None:
         if Path.is_file(file_path) and file_path.suffix == ".car":
             try:
                 # Unpack CAR file to parquet file
-                command = ["car", "extract", "--file", str(file_path)]
+                command = [
+                    "ipfs-car",
+                    "unpack",
+                    str(file_path),
+                    "--output",
+                    str(Path(dir_parquet) / f"{file_path.stem}.parquet"),
+                ]
                 run(
                     command,
                     capture_output=True,
@@ -354,9 +357,3 @@ def extract_parquet(dir_events: str, dir_parquet: str) -> None:
                 move(str(file_path), str(dir_parquet))
             except Exception as e:
                 err(f"Unexpected error occurred for file {file_path}", e)
-        else:
-            err(
-                f"Path is not a file: {file_path}",
-                ValueError("Invalid input"),
-                ValueError,
-            )

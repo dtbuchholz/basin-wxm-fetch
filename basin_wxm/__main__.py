@@ -20,7 +20,7 @@ if __name__ == "__main__":
     """
     # Get the `start` and `end` (only used in data range queries, defaults None)
     start, end = command_setup()
-    root = Path(__file__).parent  # Get the root directory of the project
+    root = Path(__file__).parent.parent  # Get the root directory of the project
 
     try:
         db = prepare_data(root)  # Fetch remote files & create DuckDB database

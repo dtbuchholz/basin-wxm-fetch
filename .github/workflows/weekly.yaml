@@ -1,9 +1,9 @@
-name: Daily
+name: weekly
 
 on:
     workflow_dispatch:
     schedule:
-        - cron: "0 0 * * *" # Run everyday
+        - cron: "0 0 * * 1" # Run every Monday at midnight UTC
 
 permissions:
     contents: write
@@ -16,14 +16,14 @@ jobs:
             - name: Checkout repo content
               uses: actions/checkout@v2 # Checkout the repository content to github runner.
 
-            - name: Set up Go 1.20 for go-car
-              uses: actions/setup-go@v2 # Set up the Go environment to run the go-car CLI
+            - name: Set up Node.js
+              uses: actions/setup-node@v2 # Set up the Node environment to run the ipfs-car CLI
               with:
-                  go-version: "1.20"
+                  node-version: "20"
 
-            - name: Install go-car CLI
+            - name: Install ipfs-car CLI
               run: |
-                  make car
+                  make ipfs-car
 
             - name: Set up Go 1.21 for Basin
               uses: actions/setup-go@v2 # Set up the Go environment to run the Basin CLI
@@ -35,29 +35,22 @@ jobs:
                   make basin
 
             - name: Set up python
-              uses: actions/setup-python@v1 # Set up the python 3.10 environment
+              uses: actions/setup-python@v2 # Set up the python 3.11 environment
               with:
                   python-version: "3.11"
 
-            - name: Install dependencies with pipenv
+            - name: Install python dependencies
               run: |
-                  pip install pipenv
-                  pipenv install --deploy --dev
+                  make install
 
             - name: Execute python script # Run the main.py script to get the latest data
               run: |
                   make run
-
-            - name: Post script cleanup
-              run: |
-                  pipenv run isort --diff .
-                  pipenv run black --check .
-                  pipenv run flake8
-                  pipenv run mypy
+              # Define start, end, and verbose if desired (see `make run` for more info)
 
             - name: Commit changes
               uses: stefanzweifel/git-auto-commit-action@v4
               with:
-                  commit_message: "chore: daily stats update"
+                  commit_message: "chore: weekly stats update"
                   file_pattern: "Data.md history.csv cache.json assets/*"
                   commit_user_name: "basin[bot]"

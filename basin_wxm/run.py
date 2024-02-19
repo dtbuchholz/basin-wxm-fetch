@@ -5,6 +5,7 @@ from io import StringIO
 from math import ceil
 from pathlib import Path
 from textwrap import dedent
+from typing import List, Tuple
 
 import contextily as ctx
 import geopandas as gpd
@@ -56,19 +57,13 @@ def prepare_data(root: Path) -> DuckDBPyConnection | None:
         Exception: If there is an error getting the vaults, events, or
             remote parquet files.
     """
-    # Get vaults for `xm_data` namespace creator
-    vaults_config = wrap_task(
-        lambda: get_vaults_config(),
-        "Getting vaults...",
-    )
-    # Get the weather data vault
-    active_pubs = vaults_config["weather_data"]
+    # Get vaults for wxm via static config file
+    vaults_config = get_vaults_config()
+    # Use the weather data vault
+    vault = vaults_config["weather_data"]
 
-    # Get events for each vault, also inserting the `namespace.vault`
-    # into the returned objects (used in forming URL path for IPFS requests)
-    events = wrap_task(
-        lambda: get_vault_events(active_pubs), "Getting events for vaults..."
-    )
+    # Get events for each vault
+    events = wrap_task(lambda: get_vault_events(vault), "Getting events for vault...")
     num_events = len(events)
     log_info(f"Number of events found: {num_events}")
 
@@ -178,7 +173,7 @@ def write_plot_precipitation_by_bbox(
     root: Path,
     start: int | None,
     end: int | None,
-    bbox: tuple[int, int, int, int],
+    bbox: Tuple[int, int, int, int],
     region_name: str,
 ) -> None:
     """
@@ -190,7 +185,7 @@ def write_plot_precipitation_by_bbox(
         root (Path): The root directory for the program.
         start (int): The start of the query time range.
         end (int): The end of the query time range.
-        bbox (tuple[int, int, int, int]): The bbox to query.
+        bbox (Tuple[int, int, int, int]): The bbox to query.
         region_name (str): The name of the region for the plot.
 
     Returns
@@ -337,14 +332,14 @@ def write_history_csv(df: DataFrame, root: Path) -> None:
         err("Error in write_history_csv", e)
 
 
-def write_history_plots(root: Path, exclude_cols: list[str]) -> None:
+def write_history_plots(root: Path, exclude_cols: List[str]) -> None:
     """
     Write plots for all columns in the history CSV file.
 
     Parameters
     ----------
         root (Path): The root directory for the program.
-        exclude_cols (list[str]): The columns to exclude from the plots.
+        exclude_cols (List[str]): The columns to exclude from the plots.
 
     Returns
     -------
@@ -388,7 +383,7 @@ def write_history_plots(root: Path, exclude_cols: list[str]) -> None:
         err("Error in write_history_plots", e)
 
 
-def write_markdown(df: DataFrame, root: Path, exclude_cols: list[str]) -> None:
+def write_markdown(df: DataFrame, root: Path, exclude_cols: List[str]) -> None:
     """
     Overwrite the run's DataFrame results to a markdown file.
 
@@ -396,6 +391,7 @@ def write_markdown(df: DataFrame, root: Path, exclude_cols: list[str]) -> None:
     ----------
         df (DataFrame): The run's polars DataFrame results.
         root (Path): The root directory for the program.
+        exclude_cols (List[str]): The columns to exclude from the markdown table.
 
     Returns
     -------

@@ -26,13 +26,13 @@ def command_setup() -> Tuple[int | None, int | None]:
         "--start",
         type=int,
         default=None,
-        help="Start timestamp for data range in unix ms (e.g., 1700438400000)",
+        help="Start unix timestamp for data range in (e.g., 1700438400)",
     )
     parser.add_argument(
         "--end",
         type=int,
         default=None,
-        help="End timestamp for data range in unix ms (e.g., 1700783999000)",
+        help="End unix timestamp for data range in (e.g., 1700783999)",
     )
     parser.add_argument(
         "--verbose",
@@ -45,7 +45,10 @@ def command_setup() -> Tuple[int | None, int | None]:
     # Default to `None` and let the queries use full range if no start/end
     args = parser.parse_args()
     start, end, log_traceback = args.start, args.end, args.verbose
-
+    if start is not None:
+        start = str(int(start) * 1000)  # Convert to unix ms (wxm dataset uses this)
+    if end is not None:
+        end = str(int(end) * 1000)
     return (start, end)
 
 
