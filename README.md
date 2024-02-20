@@ -84,35 +84,35 @@ To use default time ranges (the full dataset), run:
 make run
 ```
 
-Or, you can define a custom time range with `start` and `end` arguments (Unix epoch timestamps), which will be used to filter the data when _queries_ are executed. Note: the timestamp range for the `wxm.weather_data_dev` vault starts on `1707177600`.
+Or, you can define a custom time range with `start` and `end` arguments (Unix epoch timestamps), which will be used to filter the data when queries are executed. Note: the timestamp range for the `wxm.weather_data_dev` vault starts on `1707436800`.
 
 ```sh
-make run start=1707177600 end=1707955200
+make run start=1707436800 end=1707955200
 ```
 
-This range does _not_ define which events/data is fetched; the `cache.json` file will store all previously extracted events, so only new events will be fetched on subsequent runs.
+This range also defines which events/data is fetched; the `cache.json` file will store all previously extracted events, so only new events will be fetched on subsequent runs.
 
 Once you run the command, it'll log information about the current status of each step in the run and the total time to complete upon finishing:
 
 ```sh
-[23:20:15] INFO     Getting vaults...done in 0.55s
-[23:20:18] INFO     Getting events for vaults...done in 3.10s
-           INFO     Number of events found: 5
-           INFO     Number of new events: 1
-           INFO     Extracting data from events...done in 79.62s
+[18:45:46] INFO     Getting events for vault...done in 0.53s
+           INFO     Number of events found: 7
+           INFO     Number of new events: 7
+[18:51:04] INFO     Extracting data from events...done in 317.89s
            INFO     Creating database with parquet files...done in 0.02s
-[23:21:41] INFO     Executing queries...done in 3.49s
+[18:51:11] INFO     Executing queries...done in 6.92s
+[18:51:29] INFO     Generating bbox plots...done in 17.88s
 ⠙ Writing results to files...
 ```
 
-> Note: The program will download all files locally before creating the database and running queries, which will use up a bit of memory. For example, five wxm parquet files will total to ~1.2 GiB in terms of raw file size (each is 200-250 MiB). Over time, this will increase daily as more data is pushed to Basin.
+> Note: The program will download the files locally before creating the database and running queries, which will use up a bit of memory. For example, five wxm parquet files will total to ~1.2 GiB in terms of raw file size (each is 200-250 MiB).
 
 ### Flags
 
 The following flags are available for the `main.py` script:
 
-- `--start`: Start timestamp (in Unix ms) for the query (e.g., 1700438400000). Defaults to full range.
-- `--end`: End timestamp (in Unix ms) for the query (e.g., 1700783999000). Defaults to full range.
+- `--start`: Start timestamp (in unix) for the query (e.g., 1707436800). Defaults to full range.
+- `--end`: End timestamp (in unix) for the query (e.g., 1707955200). Defaults to full range.
 - `--verbose`: Enable verbose logging to show stack traces for errors. Defaults to true.
 
 ### Makefile Reference
@@ -124,7 +124,7 @@ The following defines all commands available in the Makefile:
 - `make setup`: Use the virtual environment and set up pre-commit hooks.
 - `make format`: Run `black`, `isort`, `mypy`, and `flake8` to format and lint the code.
 - `make basin`: Install the Basin CLI from the latest release.
-- `make car`: Install `go-car` from the latest release.
+- `make ipfs-car`: Install `ipfs-car` from the latest release.
 - `make test`: Run the (dummy) tests.
 
 ## Contributing
