@@ -45,10 +45,7 @@ def command_setup() -> Tuple[int | None, int | None]:
     # Default to `None` and let the queries use full range if no start/end
     args = parser.parse_args()
     start, end, log_traceback = args.start, args.end, args.verbose
-    if start is not None:
-        start = str(int(start) * 1000)  # Convert to unix ms (wxm dataset uses this)
-    if end is not None:
-        end = str(int(end) * 1000)
+
     return (start, end)
 
 

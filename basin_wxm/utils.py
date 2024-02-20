@@ -23,6 +23,11 @@ basicConfig(
 log = getLogger("rich")
 
 
+def unix_to_ms(unix: int) -> int:
+    """Converts a unix timestamp to milliseconds."""
+    return unix * 1000
+
+
 def format_unix_ms(input: str) -> str:
     """Formats a unix timestamp (in milliseconds) to a human readable string."""
     return datetime.utcfromtimestamp(int(input) / 1000).strftime("%Y-%m-%d %H:%M:%S")

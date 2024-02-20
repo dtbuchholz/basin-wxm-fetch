@@ -1,9 +1,9 @@
-name: weekly
+name: Weekly
 
 on:
     workflow_dispatch:
     schedule:
-        - cron: "0 0 * * 1" # Run every Monday at midnight UTC
+        - cron: "00 23 * * 4" # Run every Thursday at 23:00 UTC
 
 permissions:
     contents: write
@@ -53,4 +53,4 @@ jobs:
               with:
                   commit_message: "chore: weekly stats update"
                   file_pattern: "Data.md history.csv cache.json assets/*"
-                  commit_user_name: "basin[bot]"
+                  commit_user_name: "vaults[bot]"

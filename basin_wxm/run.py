@@ -33,11 +33,14 @@ from .utils import (
     get_current_date,
     log_info,
     to_title_case,
+    unix_to_ms,
     wrap_task,
 )
 
 
-def prepare_data(root: Path) -> DuckDBPyConnection | None:
+def prepare_data(
+    root: Path, start: int | None, end: int | None
+) -> DuckDBPyConnection | None:
     """
     Prepare an in-memory database for querying by first getting data for
     vaults, events, CAR files, and extracted parquet files.
@@ -45,6 +48,8 @@ def prepare_data(root: Path) -> DuckDBPyConnection | None:
     Parameters
     ----------
         root (Path): The root directory of the project.
+        start (int): The start of the query time range (can be None).
+        end (int): The end of the query time range (can be None).
 
     Returns
     -------
@@ -63,7 +68,9 @@ def prepare_data(root: Path) -> DuckDBPyConnection | None:
     vault = vaults_config["weather_data"]
 
     # Get events for each vault
-    events = wrap_task(lambda: get_vault_events(vault), "Getting events for vault...")
+    events = wrap_task(
+        lambda: get_vault_events(vault, start, end), "Getting events for vault..."
+    )
     num_events = len(events)
     log_info(f"Number of events found: {num_events}")
 
@@ -118,6 +125,11 @@ def run(db: DuckDBPyConnection, root: Path, start: int | None, end: int | None) 
     """
     # Execute queries and get the results as a polars DataFrame
     # Also, set `start` and `end` time dynamically, if None
+    # But first, convert to unix ms (the wxm dataset uses this)
+    if start is not None:
+        start = unix_to_ms(start)
+    if end is not None:
+        end = unix_to_ms(end)
     df = wrap_task(lambda: execute_queries(db, start, end), "Executing queries...")
     # Generate plots for bbox across the database and write to files
     wrap_task(

@@ -23,7 +23,8 @@ if __name__ == "__main__":
     root = Path(__file__).parent.parent  # Get the root directory of the project
 
     try:
-        db = prepare_data(root)  # Fetch remote files & create DuckDB database
+        # Fetch remote files & create DuckDB database
+        db = prepare_data(root, start, end)
         # If no db is created, then no new events were found after checking cache
         if db is not None:
             run(db, root, start, end)  # Execute queries and write results to files

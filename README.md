@@ -23,8 +23,8 @@ This project runs a simple analysis on [WeatherXM](https://weatherxm.com/) data 
 
 The script fetches data from the WeatherXM's `wxm.weather_data_dev` vault (created by `0x75c9eCb5309d068f72f545F3fbc7cCD246016fE0`) on a cron schedule with GitHub Actions. For every run, it will query data and write the results to:
 
--   [Data](./Data.md): Summary metrics for the run, including averages across all columns.
--   [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
+- [Data](./Data.md): Summary metrics for the run, including averages across all columns.
+- [History](./history.csv): A CSV file containing the full history of all runs, along with the run date and time.
 
 ## Install
 
@@ -53,14 +53,14 @@ pipenv run pre-commit install -t pre-push
 
 Note the core dependencies installed are:
 
--   [`contextily`](https://contextily.readthedocs.io/en/latest/): Used for plotting data on a map.
--   [`duckdb`](https://duckdb.org/docs/api/python/overview): Creates an in-memory SQL database for querying parquet files extracted from Basin.
--   [`geopandas`](https://geopandas.org/en/stable/): Also used for plotting data on a map.
--   [`shapely`](https://pypi.org/project/shapely/): Required for `geopandas` to work.
--   [`requests`](https://pypi.org/project/requests/): Make requests to Basin HTTP API to fetch data.
--   [`polars`](https://pola.rs/): Used for DataFrame operations as part of post-query logic.
--   [`pyarrow`](https://pypi.org/project/pyarrow/): Required for DuckDB to work with parquet files.
--   [`rich`](https://github.com/Textualize/rich): Used for logging purposes.
+- [`contextily`](https://contextily.readthedocs.io/en/latest/): Used for plotting data on a map.
+- [`duckdb`](https://duckdb.org/docs/api/python/overview): Creates an in-memory SQL database for querying parquet files extracted from Basin.
+- [`geopandas`](https://geopandas.org/en/stable/): Also used for plotting data on a map.
+- [`shapely`](https://pypi.org/project/shapely/): Required for `geopandas` to work.
+- [`requests`](https://pypi.org/project/requests/): Make requests to Basin HTTP API to fetch data.
+- [`polars`](https://pola.rs/): Used for DataFrame operations as part of post-query logic.
+- [`pyarrow`](https://pypi.org/project/pyarrow/): Required for DuckDB to work with parquet files.
+- [`rich`](https://github.com/Textualize/rich): Used for logging purposes.
 
 Once you've done this, you'll also need to make sure the [Basin CLI](https://github.com/tablelandnetwork/basin-cli) is installed; it's part of the underlying application logic. You'll need [Go](https://go.dev/doc/install) 1.21 installed to do this, and then run:
 
@@ -111,21 +111,21 @@ Once you run the command, it'll log information about the current status of each
 
 The following flags are available for the `main.py` script:
 
--   `--start`: Start timestamp (in Unix ms) for the query (e.g., 1700438400000). Defaults to full range.
--   `--end`: End timestamp (in Unix ms) for the query (e.g., 1700783999000). Defaults to full range.
--   `--verbose`: Enable verbose logging to show stack traces for errors. Defaults to true.
+- `--start`: Start timestamp (in Unix ms) for the query (e.g., 1700438400000). Defaults to full range.
+- `--end`: End timestamp (in Unix ms) for the query (e.g., 1700783999000). Defaults to full range.
+- `--verbose`: Enable verbose logging to show stack traces for errors. Defaults to true.
 
 ### Makefile Reference
 
 The following defines all commands available in the Makefile:
 
--   `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write metrics to summary files.
--   `make install`: Install dependencies with `pip`, upgrading pip first.
--   `make setup`: Use the virtual environment and set up pre-commit hooks.
--   `make format`: Run `black`, `isort`, `mypy`, and `flake8` to format and lint the code.
--   `make basin`: Install the Basin CLI from the latest release.
--   `make car`: Install `go-car` from the latest release.
--   `make test`: Run the (dummy) tests.
+- `make run`: Run the `main.py` program to fetch Basin/wxm data, run queries, and write metrics to summary files.
+- `make install`: Install dependencies with `pip`, upgrading pip first.
+- `make setup`: Use the virtual environment and set up pre-commit hooks.
+- `make format`: Run `black`, `isort`, `mypy`, and `flake8` to format and lint the code.
+- `make basin`: Install the Basin CLI from the latest release.
+- `make car`: Install `go-car` from the latest release.
+- `make test`: Run the (dummy) tests.
 
 ## Contributing
 

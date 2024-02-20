@@ -53,13 +53,15 @@ def get_vaults(address: str) -> List[str]:
     return vaults
 
 
-def get_vault_events(vault: str) -> List[Dict]:
+def get_vault_events(vault: str, start: int | None, end: int | None) -> List[Dict]:
     """
     Get events for one or more vaults.
 
     Parameters
     ----------
         vaults (str): The vault.
+        start (int): The start time for the events.
+        end (int): The end time for the events.
 
     Returns
     -------
@@ -80,7 +82,8 @@ def get_vault_events(vault: str) -> List[Dict]:
     # objects that contain the CID and other metadata
     try:
         url = f"https://basin.tableland.xyz/vaults/{vault}/events"
-        response = get(url)
+        params = {"after": start, "before": end}
+        response = get(url, params)
 
         if response.status_code == 200:
             vault_events = response.json()
