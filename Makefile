@@ -2,9 +2,9 @@
 basin:
 	go install github.com/tablelandnetwork/basin-cli/cmd/vaults@latest
 
-# Install go-car CLI
-car:
-	go install github.com/ipld/go-car/cmd/car@latest
+# Install ifps-car CLI
+ipfs-car:
+	npm i -g ipfs-car
 
 install:
 	pipenv install --dev

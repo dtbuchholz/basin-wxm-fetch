@@ -85,12 +85,16 @@ def prepare_data(
         return None
 
     # Write the updated events to the cache file
-    write_events_cache(events, cache_file)
+    write_events_cache(new_events, cache_file)
 
     # Set up the directory for the extracted parquet files
     data_dir = root / "inputs"
     if not Path.exists(data_dir):
         Path.mkdir(data_dir)
+    else:
+        # Clear the directory if it already exists
+        for file in data_dir.iterdir():
+            file.unlink()
     # Retrieve events & extract the parquet files from each CAR file
     wrap_task(
         lambda: extract_events(new_events, data_dir), "Extracting data from events..."
@@ -452,8 +456,9 @@ def write_markdown(df: DataFrame, root: Path, exclude_cols: List[str]) -> None:
                 - `uv_index` (double): UV index.
                 - `precipitation_rate` (double): Precipitation rate (millimeters per hour).
                 - `pressure` (double): Pressure (HectoPascals).
-                - `model` (varchar): Model of the device (either WXM WS1000 or WXM WS2000).
                 - `name` (varchar): Name of the device.
+                - `utc_datetime` (varchar): Timestamp from the raw data in UTC.
+                - `model` (varchar): Model of the device (either WXM WS1000 or WXM WS2000).
                 - `cell_id` (varchar): Cell ID of the device.
                 - `lat` (double): Latitude of the cell.
                 - `lon` (double): Longitude of the cell.
