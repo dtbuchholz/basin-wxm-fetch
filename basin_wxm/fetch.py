@@ -82,7 +82,7 @@ def get_vault_events(vault: str, start: int | None, end: int | None) -> List[Dic
     # objects that contain the CID and other metadata
     try:
         url = f"https://basin.tableland.xyz/vaults/{vault}/events"
-        params = {"after": start, "before": end, "limit": 50}
+        params = {"after": start, "before": end, "limit": 1000}
         response = get(url, params)
 
         if response.status_code == 200:

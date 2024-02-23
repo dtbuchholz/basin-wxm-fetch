@@ -382,11 +382,14 @@ def write_history_plots(root: Path, exclude_cols: List[str]) -> None:
                 plt.ylabel(col)
                 # Set date format on x-axis
                 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-                plt.gca().xaxis.set_major_locator(mdates.DayLocator())
+                plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=7))
                 plt.gcf().autofmt_xdate()
-                # Format y-axis to use fixed-point notation with one decimal
+                # Format y-axis to use fixed-point notation with two decimals
                 ax = plt.gca()  # Get the current axis
-                ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
+                if col == "total_precipitation":
+                    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2e"))
+                else:
+                    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
                 plt.grid(True)
 
                 # Ensure the directory exists
