@@ -3,7 +3,7 @@ name: Weekly
 on:
     workflow_dispatch:
     schedule:
-        - cron: "59 23 * * 0" # Run every Sunday at 23:59 UTC
+        - cron: "0 1 * * 1" # Run every Monday at 01:00 UTC
 
 permissions:
     contents: write
