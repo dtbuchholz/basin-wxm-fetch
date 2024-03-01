@@ -294,7 +294,7 @@ def retrieve_events(events: List[Dict], dir: str) -> None:
         cid = event.get("cid")
         if cid:
             try:
-                command = ["vaults", "retrieve", cid]
+                command = ["vaults", "retrieve", "-o", f"{cid}.parquet", cid]
                 run(
                     command,
                     capture_output=True,

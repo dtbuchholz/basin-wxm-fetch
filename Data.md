@@ -1,6 +1,6 @@
 # Data
 
-_Generated on **2024-02-22** for data in range **2024-02-12 00:00:00** to **2024-02-18 00:00:00**._
+_Generated on **2024-02-25** for data in range **2024-02-19 00:00:00** to **2024-02-25 00:00:00**._
 
 The schema for the raw data is as follows:
 
@@ -40,12 +40,12 @@ And three additional columns for run metadata:
 ## Averages & cumulative metrics
 
 | Job Date   | Range Start   | Range End     | Number Of Devices | Cell Id Mode    | Total Precipitation | Temperature | Humidity | Precipitation Accumulated |
-|------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
-| 2024-02-22 | 1707696000000 | 1708214400000 | 4529              | 871eda743ffffff | 193516426836.855    | 8.134       | 79.255   | 2021.867                  |
+| ---------- | ------------- | ------------- | ----------------- | --------------- | ------------------- | ----------- | -------- | ------------------------- |
+| 2024-03-01 | 1708300800000 | 1708819200000 | 4605              | 871eda743ffffff | 211525643130.935    | 8.622       | 77.257   | 2182.201                  |
 
 | Wind Speed | Wind Gust | Wind Direction | Illuminance | Solar Irradiance | Fo Uv   | Uv Index | Precipitation Rate | Pressure |
-|------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
-| 0.817      | 1.142     | 191.550        | 245438.146  | 1944.125         | 450.654 | 0.435    | 0.062              | 991.439  |
+| ---------- | --------- | -------------- | ----------- | ---------------- | ------- | -------- | ------------------ | -------- |
+| 0.851      | 1.189     | 188.817        | 328272.629  | 2586.728         | 499.633 | 0.527    | 0.069              | 989.563  |
 
 ## Precipitation accumulated maps
 
@@ -130,4 +130,3 @@ And three additional columns for run metadata:
 ### Pressure
 
 ![Pressure](./assets/averages/pressure.png)
-
