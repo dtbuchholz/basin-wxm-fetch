@@ -1,6 +1,6 @@
 # Data
 
-_Generated on **2024-02-25** for data in range **2024-02-19 00:00:00** to **2024-02-25 00:00:00**._
+_Generated on **2024-03-04** for data in range **2024-02-26 00:00:00** to **2024-03-02 23:59:44**._
 
 The schema for the raw data is as follows:
 
@@ -40,14 +40,26 @@ And three additional columns for run metadata:
 ## Averages & cumulative metrics
 
 | Job Date   | Range Start   | Range End     | Number Of Devices | Cell Id Mode    | Total Precipitation | Temperature | Humidity | Precipitation Accumulated |
-| ---------- | ------------- | ------------- | ----------------- | --------------- | ------------------- | ----------- | -------- | ------------------------- |
-| 2024-03-01 | 1708300800000 | 1708819200000 | 4605              | 871eda743ffffff | 211525643130.935    | 8.622       | 77.257   | 2182.201                  |
+|------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
+| 2024-03-04 | 1708905600000 | 1709423984000 | 4672              | 871eda743ffffff | 201094486599.275    | 8.890       | 76.832   | 2457.964                  |
 
 | Wind Speed | Wind Gust | Wind Direction | Illuminance | Solar Irradiance | Fo Uv   | Uv Index | Precipitation Rate | Pressure |
-| ---------- | --------- | -------------- | ----------- | ---------------- | ------- | -------- | ------------------ | -------- |
-| 0.851      | 1.189     | 188.817        | 328272.629  | 2586.728         | 499.633 | 0.527    | 0.069              | 989.563  |
+|------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
+| 0.964      | 1.315     | 177.524        | 274987.495  | 2166.654         | 491.301 | 0.522    | 0.076              | 987.959  |
 
 ## Precipitation accumulated maps
+
+### Asia
+
+![Asia](./assets/maps/precipitation_map_asia.png)
+
+### Africa
+
+![Africa](./assets/maps/precipitation_map_africa.png)
+
+### Australia
+
+![Australia](./assets/maps/precipitation_map_australia.png)
 
 ### North America
 
@@ -57,21 +69,9 @@ And three additional columns for run metadata:
 
 ![South America](./assets/maps/precipitation_map_south_america.png)
 
-### Africa
-
-![Africa](./assets/maps/precipitation_map_africa.png)
-
 ### Europe
 
 ![Europe](./assets/maps/precipitation_map_europe.png)
-
-### Asia
-
-![Asia](./assets/maps/precipitation_map_asia.png)
-
-### Australia
-
-![Australia](./assets/maps/precipitation_map_australia.png)
 
 ## Historical plots
 
@@ -130,3 +130,4 @@ And three additional columns for run metadata:
 ### Pressure
 
 ![Pressure](./assets/averages/pressure.png)
+
