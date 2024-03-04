@@ -57,4 +57,6 @@ jobs:
               with:
                   commit_message: "chore: weekly stats update"
                   file_pattern: "Data.md history.csv cache.json assets/*"
-                  commit_user_name: "vaults[bot]"
+                  commit_user_name: "github-actions[bot]"
+                  commit_user_email: "github-actions[bot]@users.noreply.github.com"
+                  commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
