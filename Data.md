@@ -1,6 +1,6 @@
 # Data
 
-_Generated on **2024-03-04** for data in range **2024-02-26 00:00:00** to **2024-03-02 23:59:44**._
+_Generated on **2024-03-11** for data in range **2024-02-28 00:00:00** to **2024-03-06 23:59:44**._
 
 The schema for the raw data is as follows:
 
@@ -41,21 +41,21 @@ And three additional columns for run metadata:
 
 | Job Date   | Range Start   | Range End     | Number Of Devices | Cell Id Mode    | Total Precipitation | Temperature | Humidity | Precipitation Accumulated |
 |------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
-| 2024-03-04 | 1708905600000 | 1709423984000 | 4672              | 871eda743ffffff | 201094486599.275    | 8.890       | 76.832   | 2457.964                  |
+| 2024-03-11 | 1709078400000 | 1709769584000 | 4721              | 871eda743ffffff | 190172637578.236    | 9.560       | 80.187   | 2303.652                  |
 
 | Wind Speed | Wind Gust | Wind Direction | Illuminance | Solar Irradiance | Fo Uv   | Uv Index | Precipitation Rate | Pressure |
 |------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
-| 0.964      | 1.315     | 177.524        | 274987.495  | 2166.654         | 491.301 | 0.522    | 0.076              | 987.959  |
+| 0.800      | 1.083     | 176.178        | 285236.227  | 2247.017         | 480.505 | 0.568    | 0.064              | 989.766  |
 
 ## Precipitation accumulated maps
-
-### Asia
-
-![Asia](./assets/maps/precipitation_map_asia.png)
 
 ### Africa
 
 ![Africa](./assets/maps/precipitation_map_africa.png)
+
+### Asia
+
+![Asia](./assets/maps/precipitation_map_asia.png)
 
 ### Australia
 
