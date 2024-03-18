@@ -1,6 +1,6 @@
 # Data
 
-_Generated on **2024-03-11** for data in range **2024-02-28 00:00:00** to **2024-03-06 23:59:44**._
+_Generated on **2024-03-18** for data in range **2024-03-07 00:00:00** to **2024-03-14 23:59:44**._
 
 The schema for the raw data is as follows:
 
@@ -41,37 +41,37 @@ And three additional columns for run metadata:
 
 | Job Date   | Range Start   | Range End     | Number Of Devices | Cell Id Mode    | Total Precipitation | Temperature | Humidity | Precipitation Accumulated |
 |------------|---------------|---------------|-------------------|-----------------|---------------------|-------------|----------|---------------------------|
-| 2024-03-11 | 1709078400000 | 1709769584000 | 4721              | 871eda743ffffff | 190172637578.236    | 9.560       | 80.187   | 2303.652                  |
+| 2024-03-18 | 1709769600000 | 1710460784000 | 4787              | 871eda743ffffff | 289677497744.696    | 9.855       | 75.897   | 2169.830                  |
 
 | Wind Speed | Wind Gust | Wind Direction | Illuminance | Solar Irradiance | Fo Uv   | Uv Index | Precipitation Rate | Pressure |
 |------------|-----------|----------------|-------------|------------------|---------|----------|--------------------|----------|
-| 0.800      | 1.083     | 176.178        | 285236.227  | 2247.017         | 480.505 | 0.568    | 0.064              | 989.766  |
+| 0.936      | 1.284     | 177.570        | 326597.929  | 2572.566         | 562.870 | 0.659    | 0.085              | 988.780  |
 
 ## Precipitation accumulated maps
 
-### Africa
+### Europe
 
-![Africa](./assets/maps/precipitation_map_africa.png)
+![Europe](./assets/maps/precipitation_map_europe.png)
 
 ### Asia
 
 ![Asia](./assets/maps/precipitation_map_asia.png)
 
-### Australia
-
-![Australia](./assets/maps/precipitation_map_australia.png)
-
 ### North America
 
 ![North America](./assets/maps/precipitation_map_north_america.png)
 
+### Africa
+
+![Africa](./assets/maps/precipitation_map_africa.png)
+
+### Australia
+
+![Australia](./assets/maps/precipitation_map_australia.png)
+
 ### South America
 
 ![South America](./assets/maps/precipitation_map_south_america.png)
-
-### Europe
-
-![Europe](./assets/maps/precipitation_map_europe.png)
 
 ## Historical plots
 
